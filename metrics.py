@@ -27,18 +27,5 @@ def confidence(x, y, w, h, ground_truths):
 
     return max_iou
 
-def loss(y_pred, y, num_classes):
-    """
-        y_pred must have a shape like this:
-        (batch_size, S, B*5 + num_classes)
-
-        y must a have a shape like this:
-        (batch_size, Num_objects, 5 + classes)
-        5 = x,y,w,h,c
-        classes = Probability distribution of each class
-    """
-
-
-
 
 
