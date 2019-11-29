@@ -45,13 +45,17 @@ class YoloLoss(nn.Module):
         for batch in range(batch_size):
             for grid_i range(pred.shape[1]):
                 for grid_j range(pred.shape[2]):
+                    contain_obj = mask_object[batch, grid_i, grid_j, 4]
+                    if (contain_obj.item() == 0.):
+                        # Just continue if this is a no object cell.
+                        continue
                     pred_box1 = pred[batch, grid_i, grid_j, 0:4] #xywh
                     pred_box2 = pred[batch, grid_i, grid_j, 5:9] #xywh
                     target_box = target[batch, grid_i, grid_j, 0:4]
                     iou1 = self.IOU(target_box, pred_box1)
                     iou2 = self.IOU(target_box, pred_box2)
 
-                    # We want the confidence targets to be equal to the IOU
+                    # We want the confidence targets to equal the IOU
                     confidence_targets[batch, grid_i, grid_j, 4] = iou1
                     confidence_targets[batch, grid_i, grid_j, 9] = iou2
 
