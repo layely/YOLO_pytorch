@@ -12,6 +12,7 @@ class YoloLoss(nn.Module):
 
     def IOU(self, box1, box2):
         # Todo
+        return 0
 
     def forward(self, pred, target):
         """
