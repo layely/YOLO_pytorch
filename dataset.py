@@ -3,6 +3,7 @@ from torch.utils import data
 import numpy as np
 import glob
 import cv2
+import math
 from tqdm import tqdm
 
 class Data(data.Dataset):
@@ -52,23 +53,22 @@ class DataSplit():
         self.labels = [] # Each label is a list of (xmin, ymin, xmax, ymax, class)
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for line in lines:
+            for line in lines[:1]:
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
                 self.labels.append(labels)
 
 
+        self.images = self.load_images(self.images)
+        # print(self.images.shape)
+        self.labels = self.encode_labels(self.labels, self.images)
 
-
-
+        self.images = self.resize_images(self.images, input_shape)
+        print(self.images.shape)
 
         # cat_images = glob.glob(dirpath + "/Cat/*.jpg")[:]
 
-        # # Filter out bad images
-        # print("\tFiltering corrupt images... ")
-        # cat_images = self.filter_corrupt_images(cat_images, input_shape)
-        # dog_images = self.filter_corrupt_images(dog_images, input_shape)
 
         # # Compute train, val and test portions
         # total = train + val + test
@@ -95,17 +95,62 @@ class DataSplit():
         test_dataset = Data(self.test_cats, self.test_dogs, device)
         return train_dataset, val_dataset, test_dataset
 
-    def filter_corrupt_images(self, paths, input_shape):
-        good_imgpaths = []
-        for path in tqdm(paths):
-            try:
-                img = self.read_image(path, input_shape)
-                good_imgpaths.append(img)
-            except:
-                pass
-        return good_imgpaths
+    def load_images(self, paths):
+        # Read images to memory
+        # Doing this because I have enough ram space:)
+        images = []
+        for path in self.images:
+            images.append(self.read_image(path))
+        return np.asarray(images)
 
-    def read_image(self, filepath, input_shape):
+    def encode_labels(self, labels, images):
+        S = 7
+        B = 2
+        C = 20
+
+        ground_truth = np.zeros((len(labels), S, S, B * 5 + C))
+        relative_labels = []
+        for i,label in enumerate(labels):
+            height, width, channels = images[i].shape
+            for one_box_str in label:
+                xmin, ymin, xmax, ymax, cla = [int(a) for a in one_box_str]
+                x_abs = (xmin + xmax) / 2
+                y_abs = (ymin + ymax) / 2
+                w_abs = xmax - xmin
+                h_abs = ymax - ymin
+
+                x = x_abs / width
+                y = y_abs / height
+                w = w_abs / width
+                h = h_abs / height
+
+                confidence = 1.
+
+                # encoded class
+                encoded_class = self.encode_class(cla, C)
+
+                # compute the grid row and column for this bbox
+                cell_size = 1. / S # relative size
+                grid_x = math.floor(x / cell_size)
+                grid_y = math.floor(y / cell_size)
+
+                target = ([x, y, w, h, confidence] * 2) + encoded_class # length = B * xywhc + num_classes
+                ground_truth[i, grid_y, grid_x, :] = target
+        return ground_truth
+
+    def encode_class(self, a_class, num_class):
+        encoded_class = [0] * num_class
+        encoded_class[a_class] = 1
+        return encoded_class
+
+
+    def read_image(self, filepath):
         img = cv2.imread(filepath)
-        img = cv2.resize(img, input_shape)
         return img
+
+    def resize_images(self, images, input_shape):
+        resized_images = []
+        for img in images:
+            resized_img = cv2.resize(img, input_shape)
+            resized_images.append(resized_img)
+        return np.asarray(resized_images)
