@@ -6,11 +6,12 @@ import cv2
 import math
 from tqdm import tqdm
 
+
 class Data(data.Dataset):
-    def __init__(self, cat_images, dog_images, device=None):
-        self.images = cat_images + dog_images
-        self.labels = [0.] * len(cat_images) + [1.0] * len(dog_images)
-        self.len = len(self.labels)
+    def __init__(self, images, labels, device=None):
+        self.images = images
+        self.labels = labels
+        self.len = self.labels.shape[0]
 
         # convert to numpy arrays
         self.images = np.asarray(self.images)
@@ -37,8 +38,9 @@ class Data(data.Dataset):
         y = self.labels[index]
         return X, y
 
-class DataSplit():
-    def __init__(self, images_path, txt_file, train, val, test, input_shape, seed=1):
+
+class Dataset():
+    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20, seed=1):
         print("Preparing data...")
 
         self.images_path = images_path
@@ -46,71 +48,74 @@ class DataSplit():
         self.train = train
         self.val = val
         self.test = test
+        self.S = S
+        self.B = B
+        self.C = C
         self.seed = seed
 
         # Load images
         self.images = []
-        self.labels = [] # Each label is a list of (xmin, ymin, xmax, ymax, class)
+        # Each label is a list of (xmin, ymin, xmax, ymax, class)
+        self.labels = []
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for line in lines[:1]:
+            for i, line in enumerate(lines[:20]):
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
                 self.labels.append(labels)
 
-
+        print("\tLoading images...")
         self.images = self.load_images(self.images)
-        # print(self.images.shape)
+
+        print("\tEncoding labels...")
         self.labels = self.encode_labels(self.labels, self.images)
 
+        print("\tResizing images...")
         self.images = self.resize_images(self.images, input_shape)
-        print(self.images.shape)
 
-        # cat_images = glob.glob(dirpath + "/Cat/*.jpg")[:]
-
-
-        # # Compute train, val and test portions
-        # total = train + val + test
-        # train = train/total
-        # val = val/total
-        # test = test/total
+        # Compute train, val and test portions
+        total = train + val + test
+        train = train/total
+        val = val/total
+        test = test/total
 
         # # compute number of images in train and val
-        # train_size = round(train * len(cat_images))
-        # val_size = round(val * len(cat_images))
+        train_size = round(train * len(self.images))
+        val_size = round(val * len(self.images))
 
         # # Split into train, val and test
-        # print("\tSpliting dataset...")
-        # self.train_cats = cat_images[:train_size]
-        # self.train_dogs = dog_images[:train_size]
-        # self.val_cats = cat_images[train_size:train_size + val_size]
-        # self.val_dogs = dog_images[train_size:train_size + val_size]
-        # self.test_cats = cat_images[train_size + val_size:]
-        # self.test_dogs = dog_images[train_size + val_size:]
+        print("\tSpliting dataset...")
+        self.trainX = self.images[:train_size]
+        self.trainY = self.labels[:train_size]
+        self.valX = self.images[train_size:train_size + val_size]
+        self.valY = self.labels[train_size:train_size + val_size]
+        self.testX = self.images[train_size + val_size:]
+        self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self, device=None):
-        train_dataset = Data(self.train_cats, self.train_dogs, device)
-        val_dataset = Data(self.val_cats, self.val_dogs, device)
-        test_dataset = Data(self.test_cats, self.test_dogs, device)
+        train_dataset = Data(self.trainX, self.trainY, device)
+        val_dataset = Data(self.valX, self.valY, device)
+        test_dataset = Data(self.testX, self.testY, device)
         return train_dataset, val_dataset, test_dataset
 
     def load_images(self, paths):
         # Read images to memory
         # Doing this because I have enough ram space:)
         images = []
-        for path in self.images:
-            images.append(self.read_image(path))
+        for path in tqdm(self.images):
+            img = self.read_image(path)
+            images.append(img)
         return np.asarray(images)
 
     def encode_labels(self, labels, images):
-        S = 7
-        B = 2
-        C = 20
+        S = self.S
+        B = self.B
+        C = self.C
 
         ground_truth = np.zeros((len(labels), S, S, B * 5 + C))
         relative_labels = []
-        for i,label in enumerate(labels):
+        for i, label in enumerate(tqdm(labels)):
             height, width, channels = images[i].shape
             for one_box_str in label:
                 xmin, ymin, xmax, ymax, cla = [int(a) for a in one_box_str]
@@ -130,11 +135,12 @@ class DataSplit():
                 encoded_class = self.encode_class(cla, C)
 
                 # compute the grid row and column for this bbox
-                cell_size = 1. / S # relative size
+                cell_size = 1. / S  # relative size
                 grid_x = math.floor(x / cell_size)
                 grid_y = math.floor(y / cell_size)
 
-                target = ([x, y, w, h, confidence] * 2) + encoded_class # length = B * xywhc + num_classes
+                target = ([x, y, w, h, confidence] * 2) + \
+                    encoded_class  # length = B * xywhc + num_classes
                 ground_truth[i, grid_y, grid_x, :] = target
         return ground_truth
 
@@ -142,7 +148,6 @@ class DataSplit():
         encoded_class = [0] * num_class
         encoded_class[a_class] = 1
         return encoded_class
-
 
     def read_image(self, filepath):
         img = cv2.imread(filepath)

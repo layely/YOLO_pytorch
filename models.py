@@ -42,14 +42,14 @@ class YOLO(nn.Module):
             nn.Linear(features_size, 4096),
             nn.ReLU(),
             nn.Dropout(p=0.5),
-            nn.Linear(output_size, num_classes),
+            nn.Linear(4096, output_size),
             nn.Sigmoid(),
         )
 
     def forward(self, x):
         features = self.feature_extractor(x)
         y = self.classifier(features)
-        return y.view(-1, self.S, self.B*5 + self.C)
+        return y.view(-1, self.S, self.S, self.B*5 + self.C)
 
     def get_output_dim(self, model, image_dim):
         return model(torch.rand(1, *(image_dim))).data.view(1, -1).size(1)
