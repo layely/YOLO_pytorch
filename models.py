@@ -21,6 +21,8 @@ class YOLO(nn.Module):
         res50_model = models.resnet50(pretrained=True)
         self.feature_extractor = nn.Sequential(*list(res50_model.children())[:-1])
 
+        # print(res50_model)
+
         # Compute visual encoder output dim
         features_size = self.get_output_dim(self.feature_extractor, image_shape)
         print("feature size:", features_size)
