@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torchvision import models
 
 class YOLO(nn.Module):
     def __init__(self, image_shape, S, B, C):
@@ -17,19 +18,12 @@ class YOLO(nn.Module):
         self.B = B
         self.C = C
 
-        self.feature_extractor = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=5, stride=2, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=5, stride=2, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-            nn.Flatten(),
-        )
+        res50_model = models.resnet50(pretrained=True)
+        self.feature_extractor = nn.Sequential(*list(res50_model.children())[:-1])
+
         # Compute visual encoder output dim
         features_size = self.get_output_dim(self.feature_extractor, image_shape)
+        print("feature size:", features_size)
 
         # For each image, we predict S*S grids.
         # For each grid, B bounding boxes and C classes will be predicted.
@@ -39,6 +33,7 @@ class YOLO(nn.Module):
         # Confidence represent how confident the network is about the prediction.
         output_size = S * S * (B * 5 + C)
         self.classifier = nn.Sequential(
+            nn.Flatten(),
             nn.Linear(features_size, 4096),
             nn.ReLU(),
             nn.Dropout(p=0.5),
@@ -48,6 +43,7 @@ class YOLO(nn.Module):
 
     def forward(self, x):
         features = self.feature_extractor(x)
+        # print("features shape", features.shape)
         y = self.classifier(features)
         return y.view(-1, self.S, self.S, self.B*5 + self.C)
 

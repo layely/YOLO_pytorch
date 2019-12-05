@@ -121,8 +121,8 @@ class YoloLoss(nn.Module):
 
         # W, H loss
         wh_indexes = [2, 3, 7, 8]
-        wh_loss = (mask_object[:, :, :, wh_indexes] * (target[:, :,
-                                                              :, wh_indexes] - pred[:, :, :, wh_indexes]).pow(2)).sum()
+        wh_loss = (mask_object[:, :, :, wh_indexes] * (torch.sqrt(target[:, :,
+                                                              :, wh_indexes]) - torch.sqrt(pred[:, :, :, wh_indexes])).pow(2)).sum()
 
         total_loss = (self.lamda_coord*xy_loss + self.lamda_coord*wh_loss +
                       conf_loss_obj + self.lamda_noob*conf_loss_no_obj + class_loss) / batch_size

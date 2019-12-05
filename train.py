@@ -17,16 +17,16 @@ B = 2
 C = 20
 
 # Split dataset
-train = 0.6
-val = 0.2
-test = 0.2
+train = 1.
+val = 1.
+test = 1.
 
 epochs = 100
 lr = 0.001
 momentum = 0.9
 weight_decay = 5e-4
 opt = torch.optim.SGD
-batch_size = 24
+batch_size = 1
 
 dataloader = Dataset(images_path, txt_file, train,
                      val, test, (height, width), seed=1)
@@ -34,7 +34,7 @@ train_dataset, val_dataset, test_dataset = dataloader.get_datasets()
 train_generator = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True)
 
-pos = 5
+pos = 0
 img1 = train_dataset.images[pos]
 img1 = img1.permute(1, 2, 0)
 
@@ -74,6 +74,7 @@ for epoch in range(cur_epoch, epochs):
         # Step to update optimizer params
         optimizer.step()
 
+        print(preds.view((-1, 30)))
         iteration += 1
 
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)

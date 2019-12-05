@@ -6,9 +6,10 @@ import cv2
 import math
 from tqdm import tqdm
 
+from preprocessing import Preprocessing
 
 class Data(data.Dataset):
-    def __init__(self, images, labels, device=None):
+    def __init__(self, images, labels, device=None, preprocessing=None):
         self.images = images
         self.labels = labels
         self.len = self.labels.shape[0]
@@ -29,6 +30,10 @@ class Data(data.Dataset):
         if device:
             self.images = self.images.to(device)
             self.labels = self.labels.to(device)
+
+        self.preprocessing = preprocessing
+        if self.preprocessing:
+            self.images = self.preprocessing.normalize(self.images)
 
     def __len__(self):
         return self.len
@@ -53,13 +58,15 @@ class Dataset():
         self.C = C
         self.seed = seed
 
+        self.preprocessing = Preprocessing()
+
         # Load images
         self.images = []
         # Each label is a list of (xmin, ymin, xmax, ymax, class)
         self.labels = []
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for i, line in enumerate(lines[:20]):
+            for i, line in enumerate(lines[:3]):
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
@@ -94,9 +101,9 @@ class Dataset():
         self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self, device=None):
-        train_dataset = Data(self.trainX, self.trainY, device)
-        val_dataset = Data(self.valX, self.valY, device)
-        test_dataset = Data(self.testX, self.testY, device)
+        train_dataset = Data(self.trainX, self.trainY, device, self.preprocessing)
+        val_dataset = Data(self.valX, self.valY, device, self.preprocessing)
+        test_dataset = Data(self.testX, self.testY, device, self.preprocessing)
         return train_dataset, val_dataset, test_dataset
 
     def load_images(self, paths):
@@ -105,6 +112,7 @@ class Dataset():
         images = []
         for path in tqdm(self.images):
             img = self.read_image(path)
+            img = self.preprocessing.BGR2RGB(img)
             images.append(img)
         return np.asarray(images)
 
