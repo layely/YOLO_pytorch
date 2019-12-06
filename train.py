@@ -10,6 +10,8 @@ from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
 
+device = torch.device(type='cuda')
+
 images_path = "/home/layely/Myprojects/datasets/VOCtrainval_11-May-2012/VOCdevkit/VOC2012/JPEGImages"
 txt_file = "voc_2012.txt"
 
@@ -23,11 +25,11 @@ train = 1.
 val = 1.
 test = 1.
 
-epochs = 200
-lr = 0.1
+epochs = 2000
+lr = 0.001
 momentum = 0.9
 weight_decay = 5e-4
-opt = torch.optim.SGD
+opt = torch.optim.Adam
 batch_size = 1
 
 dataloader = Dataset(images_path, txt_file, train,
@@ -38,26 +40,29 @@ train_generator = data.DataLoader(
 
 preprocess = Preprocessing()
 pos = 0
-img1 = train_dataset.images[pos].detach()
+img1 = train_dataset.images[pos]
 target1 = train_dataset.labels[pos]
 visualize_boxes(img1, target1, "gt.jpg", preprocess)
 
-# Enable anomaly detection
+# Enable anomaly detection for debugging purpose
 torch.autograd.set_detect_anomaly(True)
 
 model = YOLO((channels, height, width), S, B, C)
+model = model.to(device)
 
-loss_func = torch.nn.MSELoss(reduction="mean") # YoloLoss(S, B, C)
-optimizer = opt(model.parameters(), lr=lr, momentum=momentum, weight_decay=weight_decay)
+loss_func =  YoloLoss(S, B, C) #torch.nn.MSELoss(reduction="sum")
+optimizer = opt(model.parameters(), lr=lr, weight_decay=weight_decay) # momentum=momentum
 
 cur_epoch = 0
 for epoch in range(cur_epoch, epochs):
     accumulated_train_loss = []
     # Set model in trainng mode
-    model.train()
     iteration = 0
     for batch_x, batch_y in tqdm(train_generator):
+        model.train()
         # print("batch shape:", batch_x.shape)
+        batch_x = batch_x.to(device)
+        batch_y = batch_y.to(device)
 
         # Forward
         preds = model(batch_x)
@@ -78,11 +83,13 @@ for epoch in range(cur_epoch, epochs):
         # print(preds.view((-1, 30)))
         iteration += 1
 
-        if epoch % 10 == 0:
-            name = "epoch" + str(epoch) + ".jpg"
-            img = batch_x.detach().view((channels, height, width))
-            pred = preds.detach().view((S, S, 30))
+        # model.eval()
+        # preds = model(batch_x)
+        if (epoch + 1) % 100 == 0:
+            name = "predictions/epoch" + str(epoch + 1) + ".jpg"
+            img = batch_x.clone().detach().view((channels, height, width))
+            pred = preds.clone().detach().view((S, S, B * 5 + C))
             visualize_boxes(img, pred, name, preprocess)
 
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
-    print("Train loss: {}".format(train_loss))
+    print("Epoch: {} --- Train loss: {}".format(epoch + 1, train_loss))
