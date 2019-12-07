@@ -93,8 +93,6 @@ class YoloLoss(nn.Module):
             else:
                 pred_boxes_iou[i] = pred_obj[i, 5:10]
 
-        pred_boxes_iou = pred_boxes_iou
-
         xy_loss = self.mse(pred_boxes_iou[:, :2], target_boxes_iou[:, :2])
         wh_loss = self.mse(torch.sqrt(pred_boxes_iou[:, 2:4]), torch.sqrt(target_boxes_iou[:, 2:4]))
 
