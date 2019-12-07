@@ -147,7 +147,16 @@ class Dataset():
                 grid_x = math.floor(x / cell_size)
                 grid_y = math.floor(y / cell_size)
 
-                target = ([x, y, w, h, confidence] * 2) + \
+                # x,y relative to the cell
+                x = x - (grid_x * cell_size)
+                y = y - (grid_y * cell_size)
+
+                # Normalize x and y with respect to cell_size
+                # so that they are in the range [0, 1]
+                x = x / cell_size
+                y = y / cell_size
+
+                target = ([x, y, w, h, confidence] * B) + \
                     encoded_class  # length = B * xywhc + num_classes
                 ground_truth[i, grid_y, grid_x, :] = target
         return ground_truth

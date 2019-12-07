@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import cv2
 
-TRESH_HOLD = 0.50
+TRESH_HOLD = 0.25
 
 def draw_bbox(img, box, class_name, color=None):
     """
@@ -40,13 +40,28 @@ def visualize_boxes(img, label, name=None, preprocess=None):
     np_img = preprocess.RGB2BGR(np_img)
     np_labels = label.cpu().numpy()
 
-    for i in range(np_labels.shape[0]):
-        for j in range(np_labels.shape[0]):
+    S = np_labels.shape[0]
+
+    for i in range(S):
+        for j in range(S):
             bbox1, bbox2 = np_labels[i, j, :5], np_labels[i, j, 5:10]
-            for box in [bbox1, bbox2]:
-                if box[4] > TRESH_HOLD:
-                    class_number = np.argmax(np_labels[i, j, 10:])
-                    draw_bbox(np_img, box[:4], str(class_number))
+            if bbox1[4] > bbox2[4]:
+                box = bbox1
+            else:
+                box = bbox2
+            if box[4] > TRESH_HOLD:
+                # x and y relative to the image instead of grid_cell
+                cell_size = 1./S
+                x,y = box[:2]
+                x *= cell_size
+                y *= cell_size
+                cell_xmin = j * cell_size
+                cell_ymin = i * cell_size
+                x = x + cell_xmin
+                y = y + cell_ymin
+                box[:2] = [x,y]
+                class_number = np.argmax(np_labels[i, j, 10:])
+                draw_bbox(np_img, box[:4], str(class_number))
 
     if not name:
         cv2.imshow("image", np_img)
@@ -54,3 +69,13 @@ def visualize_boxes(img, label, name=None, preprocess=None):
         cv2.destroyAllWindows()
     else:
         cv2.imwrite(name, np_img)
+
+def print_cell_with_objects(label):
+    np_labels = label.cpu().numpy()
+    for i in range(np_labels.shape[0]):
+        for j in range(np_labels.shape[0]):
+            bbox1, bbox2 = np_labels[i, j, :5], np_labels[i, j, 5:10]
+            for box in [bbox1, bbox2]:
+                if box[4] > TRESH_HOLD:
+                    class_number = np.argmax(np_labels[i, j, 10:])
+                    print("object in cell {}-{}: {}", j, i, box)

@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from tqdm import tqdm
 
 from dataset import Dataset
-from visualize import visualize_boxes
+from visualize import visualize_boxes, print_cell_with_objects
 from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
@@ -16,9 +16,9 @@ images_path = "/home/layely/Myprojects/datasets/VOCtrainval_11-May-2012/VOCdevki
 txt_file = "voc_2012.txt"
 
 channels, height, width = (3, 448, 448)
-S = 7
-B = 2
-C = 20
+S = 7 # SxS grid cells
+B = 2 # Number of bounding boxes per cell
+C = 20 # Number of classes
 
 # Split dataset
 train = 1.
@@ -29,7 +29,7 @@ epochs = 2000
 lr = 0.001
 momentum = 0.9
 weight_decay = 5e-4
-opt = torch.optim.Adam
+opt = torch.optim.SGD
 batch_size = 1
 
 dataloader = Dataset(images_path, txt_file, train,
@@ -51,7 +51,7 @@ model = YOLO((channels, height, width), S, B, C)
 model = model.to(device)
 
 loss_func =  YoloLoss(S, B, C) #torch.nn.MSELoss(reduction="sum")
-optimizer = opt(model.parameters(), lr=lr, weight_decay=weight_decay) # momentum=momentum
+optimizer = opt(model.parameters(), momentum=momentum, lr=lr, weight_decay=weight_decay) # momentum=momentum
 
 cur_epoch = 0
 for epoch in range(cur_epoch, epochs):
@@ -83,13 +83,21 @@ for epoch in range(cur_epoch, epochs):
         # print(preds.view((-1, 30)))
         iteration += 1
 
+        # print("gradients")
+        # print([p.grad for p in model.parameters()])
+
         # model.eval()
         # preds = model(batch_x)
         if (epoch + 1) % 100 == 0:
             name = "predictions/epoch" + str(epoch + 1) + ".jpg"
             img = batch_x.clone().detach().view((channels, height, width))
             pred = preds.clone().detach().view((S, S, B * 5 + C))
+            target = batch_y.clone().detach().view((S, S, B * 5 + C))
             visualize_boxes(img, pred, name, preprocess)
+            print("------------------------------------------")
+            print_cell_with_objects(target)
+            print("-- -- -- ")
+            print_cell_with_objects(pred)
 
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
     print("Epoch: {} --- Train loss: {}".format(epoch + 1, train_loss))

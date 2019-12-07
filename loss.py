@@ -83,7 +83,7 @@ class YoloLoss(nn.Module):
         ious = ious.view(-1, 2)
 
         target_boxes_iou = target_obj[:, :5]
-        pred_boxes_iou = torch.zeros(ious.shape[0], 5).to(device)
+        pred_boxes_iou = Variable(torch.zeros(ious.shape[0], 5).to(device))
 
         for i in range(ious.shape[0]):
             iou1 = ious[i, 0]
@@ -93,7 +93,7 @@ class YoloLoss(nn.Module):
             else:
                 pred_boxes_iou[i] = pred_obj[i, 5:10]
 
-        pred_boxes_iou = Variable(pred_boxes_iou)
+        pred_boxes_iou = pred_boxes_iou
 
         xy_loss = self.mse(pred_boxes_iou[:, :2], target_boxes_iou[:, :2])
         wh_loss = self.mse(torch.sqrt(pred_boxes_iou[:, 2:4]), torch.sqrt(target_boxes_iou[:, 2:4]))
@@ -102,6 +102,8 @@ class YoloLoss(nn.Module):
         confidence_loss_noobj = self.mse(pred_noobj[:, [4,9]], target_noobj[:, [4,9]])
 
         class_loss = self.mse(pred_obj[:, 10:], target_obj[:, 10:])
+
+        print("Losses: xy: {}, wh: {}, conf_obj: {}, conf_noobj: {}, class: {}".format(xy_loss, wh_loss, confidence_loss_obj, confidence_loss_noobj, class_loss))
 
         total_loss = self.lamda_coord * xy_loss + self.lamda_coord * wh_loss + confidence_loss_obj + self.lamda_noob * confidence_loss_noobj + class_loss
         batch_size = target.shape[0]

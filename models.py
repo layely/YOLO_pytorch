@@ -37,7 +37,7 @@ class YOLO(nn.Module):
         self.classifier = nn.Sequential(
             nn.Flatten(),
             nn.Linear(features_size, 4096),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1, inplace=True),
             nn.Dropout(p=0.5),
             nn.Linear(4096, output_size),
             nn.Sigmoid(),
