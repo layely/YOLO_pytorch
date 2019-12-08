@@ -2,6 +2,7 @@ import torch
 
 CHECKPOINT_PATH = "checkpoint.tar"
 
+
 def save_checkpoint(model, optimizer, epoch, loss):
     checkpoint = {
         "model_state_dict": model.state_dict(),
@@ -10,6 +11,7 @@ def save_checkpoint(model, optimizer, epoch, loss):
         "loss": loss
     }
     torch.save(checkpoint, CHECKPOINT_PATH)
+
 
 def load_checkpoint(model):
     checkpoint = torch.load(CHECKPOINT_PATH)

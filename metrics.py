@@ -1,10 +1,13 @@
 import torch
 
+
 def IOU(x1, y1, w1, h1, x2, y2, w2, h2):
     return 0
 
+
 def mAP():
     return 0
+
 
 def confidence(x, y, w, h, ground_truths):
     """
@@ -26,6 +29,3 @@ def confidence(x, y, w, h, ground_truths):
         max_iou = max(max_iou, iou)
 
     return max_iou
-
-
-

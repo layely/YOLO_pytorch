@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from torchvision import models
 
+
 class YOLO(nn.Module):
     def __init__(self, image_shape, S, B, C):
         """
@@ -19,12 +20,14 @@ class YOLO(nn.Module):
         self.C = C
 
         res50_model = models.resnet50(pretrained=True)
-        self.feature_extractor = nn.Sequential(*list(res50_model.children())[:-1])
+        self.feature_extractor = nn.Sequential(
+            *list(res50_model.children())[:-1])
 
         # print(res50_model)
 
         # Compute visual encoder output dim
-        features_size = self.get_output_dim(self.feature_extractor, image_shape)
+        features_size = self.get_output_dim(
+            self.feature_extractor, image_shape)
         print("feature size:", features_size)
 
         # For each image, we predict S*S grids.

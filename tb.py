@@ -4,12 +4,15 @@ from torchvision.utils import make_grid
 
 TENSORBOARD_LOG_DIR = "tensorboard_logs"
 
+
 class Tensorboard():
     """
         A wrapper around Tensorboard.
     """
+
     def __init__(self, log_dir=TENSORBOARD_LOG_DIR):
-        self.writer = SummaryWriter(log_dir=log_dir, comment='', purge_step=None)
+        self.writer = SummaryWriter(
+            log_dir=log_dir, comment='', purge_step=None)
 
     def add_scalar(self, name, scalar, epoch):
         self.writer.add_scalar(name, scalar, epoch)
@@ -19,7 +22,7 @@ class Tensorboard():
         grid = make_grid(images)
         self.writer.add_image(name, grid, 0)
         # if model:
-            # self.writer.add_graph(model, images)
+        # self.writer.add_graph(model, images)
 
     def close(self):
         self.writer.close()

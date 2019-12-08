@@ -35,16 +35,18 @@ weight_decay = 5e-4
 opt = torch.optim.SGD
 batch_size = 1
 
+preprocess = Preprocessing()
+
 # Load dataset
 dataloader = DataGenerator(images_path, txt_file, train,
-                           val, test, (height, width))
+                           val, test, (height, width),
+                           S, B, C, preprocess)
 train_dataset, val_dataset, test_dataset = dataloader.get_datasets()
 train_generator = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True)
 val_generator = data.DataLoader(
     val_dataset, batch_size=batch_size, shuffle=False)
 
-preprocess = Preprocessing()
 # pos = 0
 # img1 = train_dataset.images[pos]
 # target1 = train_dataset.labels[pos]
@@ -133,7 +135,8 @@ for epoch in range(cur_epoch, epochs):
     # Epoch losses
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
     val_loss = sum(accumulated_val_loss) / len(accumulated_val_loss)
-    print("Epoch: {} --- Train loss: {} --- Val loss: {}".format(epoch + 1, train_loss, val_loss))
+    print("*** **** Epoch: {} --- Train loss: {} --- Val loss: {}".format(epoch +
+                                                                 1, train_loss, val_loss))
 
     # Add to tensorboard
     tb.add_scalar("{}/Train loss".format(start_time), train_loss, epoch)

@@ -6,7 +6,6 @@ import cv2
 import math
 from tqdm import tqdm
 
-from preprocessing import Preprocessing
 
 class Dataset(data.Dataset):
     def __init__(self, images, labels, device=None, preprocessing=None):
@@ -45,7 +44,7 @@ class Dataset(data.Dataset):
 
 
 class DataGenerator():
-    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20):
+    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20, preprocessing=None):
         print("Preparing data...")
 
         self.images_path = images_path
@@ -57,7 +56,7 @@ class DataGenerator():
         self.B = B
         self.C = C
 
-        self.preprocessing = Preprocessing()
+        self.preprocessing = preprocessing
 
         # Load images
         self.images = []
@@ -100,9 +99,11 @@ class DataGenerator():
         self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self, device=None):
-        train_dataset = Dataset(self.trainX, self.trainY, device, self.preprocessing)
+        train_dataset = Dataset(self.trainX, self.trainY,
+                                device, self.preprocessing)
         val_dataset = Dataset(self.valX, self.valY, device, self.preprocessing)
-        test_dataset = Dataset(self.testX, self.testY, device, self.preprocessing)
+        test_dataset = Dataset(self.testX, self.testY,
+                               device, self.preprocessing)
         return train_dataset, val_dataset, test_dataset
 
     def load_images(self, paths):

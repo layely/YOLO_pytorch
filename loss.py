@@ -43,7 +43,7 @@ class YoloLoss(nn.Module):
 
         area1 = w1.view(-1, 1) * h1.view(-1, 1)
         area2 = w2.view(-1, 1) * h2.view(-1, 1)
-        
+
         # compute the intersection over union by taking the intersection
         # area and dividing it by the sum of prediction + ground-truth
         # areas - the interesection area
@@ -68,14 +68,10 @@ class YoloLoss(nn.Module):
         mask_object = mask_object.unsqueeze(-1).expand_as(target)
         mask_no_object = mask_no_object.unsqueeze(-1).expand_as(target)
 
-        print("mask object shape: ", mask_object.shape)
-
         target_obj = target[mask_object].view(-1, 30)
         target_noobj = target[mask_no_object].view(-1, 30)
         pred_obj = pred[mask_object].view(-1, 30)
         pred_noobj = pred[mask_no_object].view(-1, 30)
-
-        print("target shape in loss: ", target_obj.shape)
 
         pred_boxes = pred_obj[:, :10].contiguous().view(-1, 5)
         target_boxes = target_obj[:, :10].contiguous().view(-1, 5)
@@ -94,16 +90,20 @@ class YoloLoss(nn.Module):
                 pred_boxes_iou[i] = pred_obj[i, 5:10]
 
         xy_loss = self.mse(pred_boxes_iou[:, :2], target_boxes_iou[:, :2])
-        wh_loss = self.mse(torch.sqrt(pred_boxes_iou[:, 2:4]), torch.sqrt(target_boxes_iou[:, 2:4]))
+        wh_loss = self.mse(torch.sqrt(
+            pred_boxes_iou[:, 2:4]), torch.sqrt(target_boxes_iou[:, 2:4]))
 
-        confidence_loss_obj = self.mse(pred_boxes_iou[:, 4], target_boxes_iou[:, 4])
-        confidence_loss_noobj = self.mse(pred_noobj[:, [4,9]], target_noobj[:, [4,9]])
+        confidence_loss_obj = self.mse(
+            pred_boxes_iou[:, 4], target_boxes_iou[:, 4])
+        confidence_loss_noobj = self.mse(
+            pred_noobj[:, [4, 9]], target_noobj[:, [4, 9]])
 
         class_loss = self.mse(pred_obj[:, 10:], target_obj[:, 10:])
 
         # print("Losses: xy: {}, wh: {}, conf_obj: {}, conf_noobj: {}, class: {}".format(xy_loss, wh_loss, confidence_loss_obj, confidence_loss_noobj, class_loss))
 
-        total_loss = self.lamda_coord * xy_loss + self.lamda_coord * wh_loss + confidence_loss_obj + self.lamda_noob * confidence_loss_noobj + class_loss
+        total_loss = self.lamda_coord * xy_loss + self.lamda_coord * wh_loss + \
+            confidence_loss_obj + self.lamda_noob * confidence_loss_noobj + class_loss
         batch_size = target.shape[0]
 
         # individual_losses = [xy_loss.item(), wh_loss.item(), confidence_loss_obj.item(), confidence_loss_noobj.item(), class_loss.item()]

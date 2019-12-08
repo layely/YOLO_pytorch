@@ -7,18 +7,16 @@ class Preprocessing():
     def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
         self.mean = mean
         self.std = std
-        self.inv_mean = [((-1 * mean[i]) / std[i]) for i,m in enumerate(mean)]
+        self.inv_mean = [((-1 * mean[i]) / std[i]) for i, m in enumerate(mean)]
         self.inv_std = [(1 / x) for x in std]
 
         self.normalize_transform = transforms.Normalize(mean=self.mean,
-                                              std=self.std)
+                                                        std=self.std)
         self.unnormalize_transform = transforms.Normalize(mean=self.inv_mean,
-                                                std=self.inv_std)
+                                                          std=self.inv_std)
 
     def channel_first_to_channel_last(self, img):
         return img.permute(1, 2, 0)
-
-
 
     def BGR2RGB(self, img):
         """

@@ -4,12 +4,13 @@ import cv2
 
 TRESH_HOLD = 0.25
 
-VOC_CLASSES = (    # always index 0
+VOC_CLASSES = (
     'aeroplane', 'bicycle', 'bird', 'boat',
     'bottle', 'bus', 'car', 'cat', 'chair',
     'cow', 'diningtable', 'dog', 'horse',
     'motorbike', 'person', 'pottedplant',
     'sheep', 'sofa', 'train', 'tvmonitor')
+
 
 def draw_bbox(img, box, class_name, color=None, thickness=2):
     """
@@ -28,9 +29,10 @@ def draw_bbox(img, box, class_name, color=None, thickness=2):
     ymin = y - h/2
     ymax = y + h/2
     xmin, xmax, ymin, ymax = [int(i) for i in [xmin, xmax, ymin, ymax]]
-    color = (36,255,12)
+    color = (36, 255, 12)
     cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, thickness)
-    cv2.putText(img, class_name, (xmin, ymin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, thickness=1)
+    cv2.putText(img, class_name, (xmin, ymin-10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, thickness=1)
 
 
 def visualize_boxes(img, label, name=None, preprocess=None):
@@ -59,17 +61,18 @@ def visualize_boxes(img, label, name=None, preprocess=None):
             if box[4] > TRESH_HOLD:
                 # x and y relative to the image instead of grid_cell
                 cell_size = 1./S
-                x,y = box[:2]
+                x, y = box[:2]
                 x *= cell_size
                 y *= cell_size
                 cell_xmin = j * cell_size
                 cell_ymin = i * cell_size
                 x = x + cell_xmin
                 y = y + cell_ymin
-                box[:2] = [x,y]
+                box[:2] = [x, y]
                 class_number = np.argmax(np_labels[i, j, 10:])
                 confidence = round(box[4] * 100)
-                box_label = "{} {}%".format(VOC_CLASSES[class_number], confidence)
+                box_label = "{} {}%".format(
+                    VOC_CLASSES[class_number], confidence)
                 draw_bbox(np_img, box[:4], box_label, thickness=2)
 
     if not name:
@@ -78,6 +81,7 @@ def visualize_boxes(img, label, name=None, preprocess=None):
         cv2.destroyAllWindows()
     else:
         cv2.imwrite(name, np_img)
+
 
 def print_cell_with_objects(label):
     np_labels = label.cpu().numpy()
