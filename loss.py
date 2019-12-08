@@ -106,6 +106,6 @@ class YoloLoss(nn.Module):
         total_loss = self.lamda_coord * xy_loss + self.lamda_coord * wh_loss + confidence_loss_obj + self.lamda_noob * confidence_loss_noobj + class_loss
         batch_size = target.shape[0]
 
-        individual_losses = [xy_loss.item(), wh_loss.item(), confidence_loss_obj.item(), confidence_loss_noobj.item(), class_loss.item()]
-        individual_losses = [x/batch_size for x in individual_losses]
-        return total_loss / batch_size, individual_losses
+        # individual_losses = [xy_loss.item(), wh_loss.item(), confidence_loss_obj.item(), confidence_loss_noobj.item(), class_loss.item()]
+        # individual_losses = [x/batch_size for x in individual_losses]
+        return total_loss / batch_size
