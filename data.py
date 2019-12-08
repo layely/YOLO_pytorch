@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from preprocessing import Preprocessing
 
-class Data(data.Dataset):
+class Dataset(data.Dataset):
     def __init__(self, images, labels, device=None, preprocessing=None):
         self.images = images
         self.labels = labels
@@ -44,8 +44,8 @@ class Data(data.Dataset):
         return X, y
 
 
-class Dataset():
-    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20, seed=1):
+class DataGenerator():
+    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20):
         print("Preparing data...")
 
         self.images_path = images_path
@@ -56,7 +56,6 @@ class Dataset():
         self.S = S
         self.B = B
         self.C = C
-        self.seed = seed
 
         self.preprocessing = Preprocessing()
 
@@ -101,9 +100,9 @@ class Dataset():
         self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self, device=None):
-        train_dataset = Data(self.trainX, self.trainY, device, self.preprocessing)
-        val_dataset = Data(self.valX, self.valY, device, self.preprocessing)
-        test_dataset = Data(self.testX, self.testY, device, self.preprocessing)
+        train_dataset = Dataset(self.trainX, self.trainY, device, self.preprocessing)
+        val_dataset = Dataset(self.valX, self.valY, device, self.preprocessing)
+        test_dataset = Dataset(self.testX, self.testY, device, self.preprocessing)
         return train_dataset, val_dataset, test_dataset
 
     def load_images(self, paths):

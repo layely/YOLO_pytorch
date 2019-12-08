@@ -4,11 +4,12 @@ from torch.autograd import Variable
 
 from tqdm import tqdm
 
-from dataset import Dataset
+from data import DataGenerator
 from visualize import visualize_boxes, print_cell_with_objects
 from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
+from tb import Tensorboard
 
 device = torch.device(type='cuda')
 
@@ -32,8 +33,8 @@ weight_decay = 5e-4
 opt = torch.optim.SGD
 batch_size = 1
 
-dataloader = Dataset(images_path, txt_file, train,
-                     val, test, (height, width), seed=1)
+dataloader = DataGenerator(images_path, txt_file, train,
+                     val, test, (height, width))
 train_dataset, val_dataset, test_dataset = dataloader.get_datasets()
 train_generator = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True)
@@ -49,6 +50,9 @@ torch.autograd.set_detect_anomaly(True)
 
 model = YOLO((channels, height, width), S, B, C)
 model = model.to(device)
+
+# Init tensorboard for loss visualization
+tb = Tensorboard()
 
 loss_func =  YoloLoss(S, B, C) #torch.nn.MSELoss(reduction="sum")
 optimizer = opt(model.parameters(), momentum=momentum, lr=lr, weight_decay=weight_decay) # momentum=momentum
@@ -94,10 +98,14 @@ for epoch in range(cur_epoch, epochs):
             pred = preds.clone().detach().view((S, S, B * 5 + C))
             target = batch_y.clone().detach().view((S, S, B * 5 + C))
             visualize_boxes(img, pred, name, preprocess)
-            print("------------------------------------------")
-            print_cell_with_objects(target)
-            print("-- -- -- ")
-            print_cell_with_objects(pred)
+            # print("------------------------------------------")
+            # print_cell_with_objects(target)
+            # print("-- -- -- ")
+            # print_cell_with_objects(pred)
 
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
+    tb.add_scalar("Train loss", train_loss, epoch)
     print("Epoch: {} --- Train loss: {}".format(epoch + 1, train_loss))
+
+# End of train
+tb.close()

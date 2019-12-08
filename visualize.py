@@ -4,7 +4,14 @@ import cv2
 
 TRESH_HOLD = 0.25
 
-def draw_bbox(img, box, class_name, color=None):
+VOC_CLASSES = (    # always index 0
+    'aeroplane', 'bicycle', 'bird', 'boat',
+    'bottle', 'bus', 'car', 'cat', 'chair',
+    'cow', 'diningtable', 'dog', 'horse',
+    'motorbike', 'person', 'pottedplant',
+    'sheep', 'sofa', 'train', 'tvmonitor')
+
+def draw_bbox(img, box, class_name, color=None, thickness=2):
     """
         image: (BGR) numpy array
         box: xywh list
@@ -22,8 +29,8 @@ def draw_bbox(img, box, class_name, color=None):
     ymax = y + h/2
     xmin, xmax, ymin, ymax = [int(i) for i in [xmin, xmax, ymin, ymax]]
     color = (36,255,12)
-    cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, 1)
-    cv2.putText(img, class_name, (xmin, ymin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+    cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, thickness)
+    cv2.putText(img, class_name, (xmin, ymin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, thickness=1)
 
 
 def visualize_boxes(img, label, name=None, preprocess=None):
@@ -61,7 +68,9 @@ def visualize_boxes(img, label, name=None, preprocess=None):
                 y = y + cell_ymin
                 box[:2] = [x,y]
                 class_number = np.argmax(np_labels[i, j, 10:])
-                draw_bbox(np_img, box[:4], str(class_number))
+                confidence = round(box[4] * 100)
+                box_label = "{} {}%".format(VOC_CLASSES[class_number], confidence)
+                draw_bbox(np_img, box[:4], box_label, thickness=2)
 
     if not name:
         cv2.imshow("image", np_img)

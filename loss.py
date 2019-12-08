@@ -101,9 +101,11 @@ class YoloLoss(nn.Module):
 
         class_loss = self.mse(pred_obj[:, 10:], target_obj[:, 10:])
 
-        print("Losses: xy: {}, wh: {}, conf_obj: {}, conf_noobj: {}, class: {}".format(xy_loss, wh_loss, confidence_loss_obj, confidence_loss_noobj, class_loss))
+        # print("Losses: xy: {}, wh: {}, conf_obj: {}, conf_noobj: {}, class: {}".format(xy_loss, wh_loss, confidence_loss_obj, confidence_loss_noobj, class_loss))
 
         total_loss = self.lamda_coord * xy_loss + self.lamda_coord * wh_loss + confidence_loss_obj + self.lamda_noob * confidence_loss_noobj + class_loss
         batch_size = target.shape[0]
 
-        return total_loss / batch_size
+        individual_losses = [xy_loss.item(), wh_loss.item(), confidence_loss_obj.item(), confidence_loss_noobj.item(), class_loss.item()]
+        individual_losses = [x/batch_size for x in individual_losses]
+        return total_loss / batch_size, individual_losses
