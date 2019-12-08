@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 
 class Dataset(data.Dataset):
-    def __init__(self, images, labels, device=None, preprocessing=None):
+    def __init__(self, images, labels, preprocessing=None):
         self.images = images
         self.labels = labels
         self.len = self.labels.shape[0]
@@ -24,11 +24,6 @@ class Dataset(data.Dataset):
         # In pytorch, conv2D expect input shape to be in this
         # form: (batch_size, channels, height, weight).
         self.images = self.images.permute(0, 3, 1, 2)
-
-        # Move to specified device if applicable.
-        if device:
-            self.images = self.images.to(device)
-            self.labels = self.labels.to(device)
 
         self.preprocessing = preprocessing
         if self.preprocessing:
@@ -64,7 +59,7 @@ class DataGenerator():
         self.labels = []
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for i, line in enumerate(lines[:3]):
+            for i, line in enumerate(lines[:300]):
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
@@ -98,12 +93,10 @@ class DataGenerator():
         self.testX = self.images[train_size + val_size:]
         self.testY = self.labels[train_size + val_size:]
 
-    def get_datasets(self, device=None):
-        train_dataset = Dataset(self.trainX, self.trainY,
-                                device, self.preprocessing)
-        val_dataset = Dataset(self.valX, self.valY, device, self.preprocessing)
-        test_dataset = Dataset(self.testX, self.testY,
-                               device, self.preprocessing)
+    def get_datasets(self):
+        train_dataset = Dataset(self.trainX, self.trainY, self.preprocessing)
+        val_dataset = Dataset(self.valX, self.valY, self.preprocessing)
+        test_dataset = Dataset(self.testX, self.testY, self.preprocessing)
         return train_dataset, val_dataset, test_dataset
 
     def load_images(self, paths):

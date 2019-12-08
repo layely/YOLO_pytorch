@@ -33,7 +33,7 @@ lr = 0.001
 momentum = 0.9
 weight_decay = 5e-4
 opt = torch.optim.SGD
-batch_size = 1
+batch_size = 8
 
 preprocess = Preprocessing()
 
@@ -105,8 +105,6 @@ for epoch in range(cur_epoch, epochs):
         # print("gradients")
         # print([p.grad for p in model.parameters()])
 
-        # model.eval()
-        # preds = model(batch_x)
         if (epoch + 1) % 100 == 0:
             name = "predictions/epoch" + str(epoch + 1) + ".jpg"
             img = batch_x.clone().detach().view((channels, height, width))
@@ -119,18 +117,19 @@ for epoch in range(cur_epoch, epochs):
             # print_cell_with_objects(pred)
 
     # Validation
+    model.eval()
     accumulated_val_loss = []
-    for batch_x, batch_y in tqdm(val_generator):
-        model.eval()
-        batch_x = batch_x.to(device)
-        batch_y = batch_y.to(device)
+    with torch.no_grad():
+        for batch_x, batch_y in tqdm(val_generator):
+            batch_x = batch_x.to(device)
+            batch_y = batch_y.to(device)
 
-        # Forward
-        preds = model(batch_x)
+            # Forward
+            preds = model(batch_x)
 
-        # compute loss
-        val_loss = loss_func(preds, batch_y)
-        accumulated_val_loss.append(val_loss)
+            # compute loss
+            val_loss = loss_func(preds, batch_y)
+            accumulated_val_loss.append(val_loss)
 
     # Epoch losses
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
