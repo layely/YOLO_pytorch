@@ -23,19 +23,33 @@ S = 7  # SxS grid cells
 B = 2  # Number of bounding boxes per cell
 C = 20  # Number of classes
 
-# Split dataset
+# Data split proportions
 train = 1.
 val = 1.
 test = 1.
 
+# Training hyperparameters
 epochs = 2000
-lr = 0.001
+lr = 0.0005
 momentum = 0.9
 weight_decay = 5e-4
 opt = torch.optim.SGD
-batch_size = 8
+batch_size = 1
 
-preprocess = Preprocessing()
+
+# Image normalization parameters
+# Note that images are squished to
+# the range [0, 1] before normalization
+mean = [0.485, 0.456, 0.406] # RGB - Imagenet means
+std = [0.229, 0.224, 0.225] # RGB - Imagenet standard deviations
+
+# Random color transformation
+brightness = 0.1
+saturation = .5
+contrast = .5
+hue = .1
+
+preprocess = Preprocessing(mean, std, brightness, saturation, contrast, hue)
 
 # Load dataset
 dataloader = DataGenerator(images_path, txt_file, train,
@@ -135,7 +149,7 @@ for epoch in range(cur_epoch, epochs):
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
     val_loss = sum(accumulated_val_loss) / len(accumulated_val_loss)
     print("*** **** Epoch: {} --- Train loss: {} --- Val loss: {}".format(epoch +
-                                                                 1, train_loss, val_loss))
+                                                                          1, train_loss, val_loss))
 
     # Add to tensorboard
     tb.add_scalar("{}/Train loss".format(start_time), train_loss, epoch)

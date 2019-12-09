@@ -8,10 +8,11 @@ from tqdm import tqdm
 
 
 class Dataset(data.Dataset):
-    def __init__(self, images, labels, preprocessing=None):
+    def __init__(self, images, labels, preprocessing=None, random_transform=False):
         self.images = images
         self.labels = labels
         self.len = self.labels.shape[0]
+        self.random_transform = random_transform
 
         # convert to numpy arrays
         self.images = np.asarray(self.images)
@@ -35,6 +36,10 @@ class Dataset(data.Dataset):
     def __getitem__(self, index):
         X = self.images[index]
         y = self.labels[index]
+
+        if self.random_transform:
+            X = self.preprocessing.random_color_transform(X)
+
         return X, y
 
 
@@ -94,7 +99,7 @@ class DataGenerator():
         self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self):
-        train_dataset = Dataset(self.trainX, self.trainY, self.preprocessing)
+        train_dataset = Dataset(self.trainX, self.trainY, self.preprocessing, random_transform=True)
         val_dataset = Dataset(self.valX, self.valY, self.preprocessing)
         test_dataset = Dataset(self.testX, self.testY, self.preprocessing)
         return train_dataset, val_dataset, test_dataset

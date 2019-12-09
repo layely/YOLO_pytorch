@@ -4,7 +4,8 @@ import torch
 
 
 class Preprocessing():
-    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]):
+    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
+                 brightness=0, saturation=0, contrast=0, hue=0):
         self.mean = mean
         self.std = std
         self.inv_mean = [((-1 * mean[i]) / std[i]) for i, m in enumerate(mean)]
@@ -14,6 +15,15 @@ class Preprocessing():
                                                         std=self.std)
         self.unnormalize_transform = transforms.Normalize(mean=self.inv_mean,
                                                           std=self.inv_std)
+
+        self.brightness = brightness
+        self.saturation = saturation
+        self.contrast = contrast
+        self.hue = hue
+        self.color_transform = transforms.ColorJitter(brightness, saturation, contrast, hue)
+
+        self.ToPILImage = transforms.ToPILImage()
+        self.ToTensor = transforms.ToTensor()
 
     def channel_first_to_channel_last(self, img):
         return img.permute(1, 2, 0)
@@ -59,3 +69,13 @@ class Preprocessing():
 
         ret *= 255.
         return ret
+
+    def random_color_transform(self, img):
+        """
+            Randomly change brightness, saturation,
+            contrast and hue of a given torch image.
+        """
+        pil_img = self.ToPILImage(img)
+        pil_img = self.color_transform(pil_img)
+        return self.ToTensor(pil_img)
+
