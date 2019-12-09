@@ -61,10 +61,10 @@ train_generator = data.DataLoader(
 val_generator = data.DataLoader(
     val_dataset, batch_size=batch_size, shuffle=False)
 
-# pos = 0
-# img1 = train_dataset.images[pos]
-# target1 = train_dataset.labels[pos]
-# visualize_boxes(img1, target1, "gt.jpg", preprocess)
+# This is just to check that labels are correctly encoded.
+pos = 0
+img1, target1 = train_dataset.__getitem__(pos)
+visualize_boxes(img1, target1, "gt.jpg", preprocess)
 
 # Enable anomaly detection for debugging purpose
 torch.autograd.set_detect_anomaly(True)
@@ -119,7 +119,7 @@ for epoch in range(cur_epoch, epochs):
         # print("gradients")
         # print([p.grad for p in model.parameters()])
 
-        if (epoch + 1) % 100 != 0:
+        if (epoch + 1) % 100 == 0:
             name = "predictions/epoch" + str(epoch + 1) + ".jpg"
             img = batch_x.clone().detach().view((channels, height, width))
             pred = preds.clone().detach().view((S, S, B * 5 + C))

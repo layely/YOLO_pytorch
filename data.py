@@ -8,10 +8,11 @@ from tqdm import tqdm
 
 
 class Dataset(data.Dataset):
-    def __init__(self, images, labels, preprocessing=None, random_transform=False):
+    def __init__(self, images, labels, S, B, C, preprocessing=None, random_transform=False):
         self.images = images
         self.labels = labels
-        self.len = self.labels.shape[0]
+        self.len = len(self.labels)
+        self.S, self.B, self.C = S, B, C
         self.random_transform = random_transform
 
         # convert to numpy arrays
@@ -32,17 +33,55 @@ class Dataset(data.Dataset):
         return self.len
 
     def __getitem__(self, index):
-        np_image = self.images[index] # h,w,c
-        y = self.labels[index]
-
+        np_image = self.images[index]  # h,w,c
         if self.random_transform:
             np_image = self.preprocessing.random_color_transform(np_image)
-
         torch_image = self.preprocessing.ToTensor(np_image)
-
         X = self.preprocessing.normalize(torch_image)
 
+        label = self.labels[index]
+        y = self.encode_labels(label)
+
         return X.float(), torch.from_numpy(y).float()
+
+    def encode_labels(self, label):
+        S = self.S
+        B = self.B
+        C = self.C
+
+        ground_truth = np.zeros((S, S, B * 5 + C))
+        for xmin, ymin, xmax, ymax, cla in label:
+            x = (xmin + xmax) / 2
+            y = (ymin + ymax) / 2
+            w = xmax - xmin
+            h = ymax - ymin
+
+            # compute the grid row and column for this bbox
+            cell_size = 1. / S  # relative size
+            grid_x = math.floor(x / cell_size)
+            grid_y = math.floor(y / cell_size)
+
+            # x,y relative to the cell
+            x = x - (grid_x * cell_size)
+            y = y - (grid_y * cell_size)
+
+            # Normalize x and y with respect to cell_size
+            # so that they are in the range [0, 1]
+            x = x / cell_size
+            y = y / cell_size
+
+            confidence = 1.
+            encoded_class = self.encode_class(int(cla), C)
+
+            target = ([x, y, w, h, confidence] * B) + \
+                encoded_class  # length = B * xywhc + num_classes
+            ground_truth[grid_y, grid_x, :] = target
+        return ground_truth
+
+    def encode_class(self, a_class, num_class):
+        encoded_class = [0] * num_class
+        encoded_class[a_class] = 1
+        return encoded_class
 
 
 class DataGenerator():
@@ -66,7 +105,7 @@ class DataGenerator():
         self.labels = []
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for i, line in enumerate(lines[:300]):
+            for i, line in enumerate(lines[:3]):
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
@@ -75,8 +114,8 @@ class DataGenerator():
         print("\tLoading images...")
         self.images = self.load_images(self.images)
 
-        print("\tEncoding labels...")
-        self.labels = self.encode_labels(self.labels, self.images)
+        print("\tConvert labels to relative coordinates...")
+        self.labels = self.to_relative_coordinates(self.labels, self.images)
 
         print("\tResizing images...")
         self.images = self.resize_images(self.images, input_shape)
@@ -101,10 +140,34 @@ class DataGenerator():
         self.testY = self.labels[train_size + val_size:]
 
     def get_datasets(self):
-        train_dataset = Dataset(self.trainX, self.trainY, self.preprocessing, random_transform=True)
-        val_dataset = Dataset(self.valX, self.valY, self.preprocessing)
-        test_dataset = Dataset(self.testX, self.testY, self.preprocessing)
+        S = self.S
+        B = self.B
+        C = self.C
+
+        train_dataset = Dataset(self.trainX, self.trainY,
+                                S, B, C, self.preprocessing, random_transform=True)
+        val_dataset = Dataset(self.valX, self.valY, S,
+                              B, C, self.preprocessing)
+        test_dataset = Dataset(self.testX, self.testY,
+                               S, B, C, self.preprocessing)
         return train_dataset, val_dataset, test_dataset
+
+    def to_relative_coordinates(self, labels, images):
+        labels_with_rel_coord = []
+        for i in tqdm(range(len(labels))):
+            xyxy_list = labels[i]
+            image = images[i]
+            image_h, image_w, _ = image.shape
+            rel_coords = []
+            for one_box_str in xyxy_list:
+                x1, y1, x2, y2, classe = [int(a) for a in one_box_str]
+                rel_x1 = x1 / image_w
+                rel_x2 = x2 / image_w
+                rel_y1 = y1 / image_h
+                rel_y2 = y2 / image_h
+                rel_coords.append([rel_x1, rel_y1, rel_x2, rel_y2, classe])
+            labels_with_rel_coord.append(rel_coords)
+        return labels_with_rel_coord
 
     def load_images(self, paths):
         # Read images to memory
@@ -115,56 +178,6 @@ class DataGenerator():
             img = self.preprocessing.BGR2RGB(img)
             images.append(img)
         return np.asarray(images)
-
-    def encode_labels(self, labels, images):
-        S = self.S
-        B = self.B
-        C = self.C
-
-        ground_truth = np.zeros((len(labels), S, S, B * 5 + C))
-        relative_labels = []
-        for i, label in enumerate(tqdm(labels)):
-            height, width, channels = images[i].shape
-            for one_box_str in label:
-                xmin, ymin, xmax, ymax, cla = [int(a) for a in one_box_str]
-                x_abs = (xmin + xmax) / 2
-                y_abs = (ymin + ymax) / 2
-                w_abs = xmax - xmin
-                h_abs = ymax - ymin
-
-                x = x_abs / width
-                y = y_abs / height
-                w = w_abs / width
-                h = h_abs / height
-
-                confidence = 1.
-
-                # encoded class
-                encoded_class = self.encode_class(cla, C)
-
-                # compute the grid row and column for this bbox
-                cell_size = 1. / S  # relative size
-                grid_x = math.floor(x / cell_size)
-                grid_y = math.floor(y / cell_size)
-
-                # x,y relative to the cell
-                x = x - (grid_x * cell_size)
-                y = y - (grid_y * cell_size)
-
-                # Normalize x and y with respect to cell_size
-                # so that they are in the range [0, 1]
-                x = x / cell_size
-                y = y / cell_size
-
-                target = ([x, y, w, h, confidence] * B) + \
-                    encoded_class  # length = B * xywhc + num_classes
-                ground_truth[i, grid_y, grid_x, :] = target
-        return ground_truth
-
-    def encode_class(self, a_class, num_class):
-        encoded_class = [0] * num_class
-        encoded_class[a_class] = 1
-        return encoded_class
 
     def read_image(self, filepath):
         img = cv2.imread(filepath)
