@@ -5,6 +5,7 @@ import glob
 import cv2
 import math
 from tqdm import tqdm
+import random
 
 
 class Dataset(data.Dataset):
@@ -34,12 +35,18 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         np_image = self.images[index]  # h,w,c
+        label = self.labels[index]
+
+        # Augmentation
         if self.random_transform:
-            np_image = self.preprocessing.random_color_transform(np_image)
+            if random.random() > 0.5:
+                np_image, label = self.flip_horizontal(np_image, label)
+            if random.random() > 0.2
+                np_image = self.preprocessing.random_color_transform(np_image)
+
         torch_image = self.preprocessing.ToTensor(np_image)
         X = self.preprocessing.normalize(torch_image)
 
-        label = self.labels[index]
         y = self.encode_labels(label)
 
         return X.float(), torch.from_numpy(y).float()
@@ -77,6 +84,19 @@ class Dataset(data.Dataset):
                 encoded_class  # length = B * xywhc + num_classes
             ground_truth[grid_y, grid_x, :] = target
         return ground_truth
+
+    def flip_horizontal(self, img, label):
+        """
+            img: numpy array
+            label: bounding boxes with relative coordinates
+        """
+
+        flipped_img = np.fliplr(img).copy()
+        flipped_label = []
+        for xmin, ymin, xmax, ymax, cla in label:
+            box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
+            flipped_label.append(box)
+        return flipped_img, flipped_label
 
     def encode_class(self, a_class, num_class):
         encoded_class = [0] * num_class
