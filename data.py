@@ -19,28 +19,30 @@ class Dataset(data.Dataset):
         self.labels = np.asarray(self.labels)
 
         # convert to tensors
-        self.images = torch.from_numpy(self.images).float()
-        self.labels = torch.from_numpy(self.labels).float()
+        # self.images = torch.from_numpy(self.images).float()
+        # self.labels = torch.from_numpy(self.labels).float()
 
         # In pytorch, conv2D expect input shape to be in this
         # form: (batch_size, channels, height, weight).
-        self.images = self.images.permute(0, 3, 1, 2)
+        # self.images = self.images.permute(0, 3, 1, 2)
 
         self.preprocessing = preprocessing
-        if self.preprocessing:
-            self.images = self.preprocessing.normalize(self.images)
 
     def __len__(self):
         return self.len
 
     def __getitem__(self, index):
-        X = self.images[index]
+        np_image = self.images[index] # h,w,c
         y = self.labels[index]
 
         if self.random_transform:
-            X = self.preprocessing.random_color_transform(X)
+            np_image = self.preprocessing.random_color_transform(np_image)
 
-        return X, y
+        torch_image = self.preprocessing.ToTensor(np_image)
+
+        X = self.preprocessing.normalize(torch_image)
+
+        return X.float(), torch.from_numpy(y).float()
 
 
 class DataGenerator():

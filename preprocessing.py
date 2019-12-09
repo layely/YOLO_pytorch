@@ -1,6 +1,7 @@
 import cv2
 from torchvision import transforms
 import torch
+import numpy as np
 
 
 class Preprocessing():
@@ -22,7 +23,7 @@ class Preprocessing():
         self.hue = hue
         self.color_transform = transforms.ColorJitter(brightness, saturation, contrast, hue)
 
-        self.ToPILImage = transforms.ToPILImage()
+        self.ToPILImage = transforms.ToPILImage(mode='RGB')
         self.ToTensor = transforms.ToTensor()
 
     def channel_first_to_channel_last(self, img):
@@ -42,19 +43,16 @@ class Preprocessing():
 
     def normalize(self, imgs):
         """
-            imgs: Torch images uint8 type: 0-255, format RGB
+            imgs: Torch images range: 0-1, format RGB
         """
-        norm = imgs / 255.
-        print(norm.shape)
-
-        if len(norm.shape) == 3:
+        if len(imgs.shape) == 3:
             # one image
-            return self.normalize_transform(norm)
+            return self.normalize_transform(imgs)
         else:
             # batch of images
-            ret = torch.zeros(norm.shape)
-            for i in range(norm.shape[0]):
-                ret[i] = self.normalize_transform(norm[i])
+            ret = torch.zeros(imgs.shape)
+            for i in range(imgs.shape[0]):
+                ret[i] = self.normalize_transform(imgs[i])
             return ret
 
     def unnormalize(self, imgs):
@@ -72,10 +70,11 @@ class Preprocessing():
 
     def random_color_transform(self, img):
         """
+            Numpy image (RGB)
             Randomly change brightness, saturation,
             contrast and hue of a given torch image.
         """
         pil_img = self.ToPILImage(img)
         pil_img = self.color_transform(pil_img)
-        return self.ToTensor(pil_img)
+        return np.array(pil_img)
 

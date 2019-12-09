@@ -44,10 +44,10 @@ mean = [0.485, 0.456, 0.406] # RGB - Imagenet means
 std = [0.229, 0.224, 0.225] # RGB - Imagenet standard deviations
 
 # Random color transformation
-brightness = 0.1
-saturation = .5
-contrast = .5
-hue = .1
+brightness = 0.4
+saturation = 0.4
+contrast = 0.4
+hue = 0.1
 
 preprocess = Preprocessing(mean, std, brightness, saturation, contrast, hue)
 
@@ -119,7 +119,7 @@ for epoch in range(cur_epoch, epochs):
         # print("gradients")
         # print([p.grad for p in model.parameters()])
 
-        if (epoch + 1) % 100 == 0:
+        if (epoch + 1) % 100 != 0:
             name = "predictions/epoch" + str(epoch + 1) + ".jpg"
             img = batch_x.clone().detach().view((channels, height, width))
             pred = preds.clone().detach().view((S, S, B * 5 + C))
