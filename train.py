@@ -11,9 +11,10 @@ from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
 from tb import Tensorboard
-from utils import save_checkpoint, load_checkpoint
+from utils import save_checkpoint
 
 device = torch.device(type='cuda')
+num_gpu = torch.cuda.device_count()
 
 images_path = "/home/layely/Myprojects/datasets/VOCtrainval_11-May-2012/VOCdevkit/VOC2012/JPEGImages"
 txt_file = "voc_2012.txt"
@@ -24,17 +25,17 @@ B = 2  # Number of bounding boxes per cell
 C = 20  # Number of classes
 
 # Data split proportions
-train = 1.
-val = 1.
-test = 1.
+train = .6
+val = .2
+test = .2
 
 # Training hyperparameters
-epochs = 2000
+epochs = 200
 lr = 0.0005
 momentum = 0.9
 weight_decay = 5e-4
 opt = torch.optim.SGD
-batch_size = 1
+batch_size = 24 * num_gpu
 
 
 # Image normalization parameters
@@ -57,9 +58,9 @@ dataloader = DataGenerator(images_path, txt_file, train,
                            S, B, C, preprocess)
 train_dataset, val_dataset, test_dataset = dataloader.get_datasets()
 train_generator = data.DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataset, batch_size=batch_size, shuffle=True, num_workers=min(num_gpu*8, 16))
 val_generator = data.DataLoader(
-    val_dataset, batch_size=batch_size, shuffle=False)
+    val_dataset, batch_size=batch_size, shuffle=False, num_workers=min(num_gpu*8, 16))
 
 # This is just to check that labels are correctly encoded.
 pos = 0
@@ -67,10 +68,14 @@ img1, target1 = train_dataset.__getitem__(pos)
 visualize_boxes(img1, target1, "gt.jpg", preprocess)
 
 # Enable anomaly detection for debugging purpose
-torch.autograd.set_detect_anomaly(True)
+# torch.autograd.set_detect_anomaly(True)
 
 model = YOLO((channels, height, width), S, B, C)
+if num_gpu > 1:
+  print("Let's use", num_gpu, "GPUs!")
+  model = torch.nn.DataParallel(model)
 model = model.to(device)
+
 
 # Init tensorboard for loss visualization
 tb = Tensorboard()
@@ -84,11 +89,11 @@ best_model_loss = None
 
 start_time = time.ctime()
 
-
 cur_epoch = 0
 for epoch in range(cur_epoch, epochs):
     accumulated_train_loss = []
 
+    start_timestamp = time.time()
     # Train
     model.train()
     iteration = 0
@@ -119,11 +124,12 @@ for epoch in range(cur_epoch, epochs):
         # print("gradients")
         # print([p.grad for p in model.parameters()])
 
-        if (epoch + 1) % 100 == 0:
-            name = "predictions/epoch" + str(epoch + 1) + ".jpg"
-            img = batch_x.clone().detach().view((channels, height, width))
-            pred = preds.clone().detach().view((S, S, B * 5 + C))
-            target = batch_y.clone().detach().view((S, S, B * 5 + C))
+    if (epoch + 1) % 10 == 0:
+        for i in range(min(batch_size, 4)):
+            name = "predictions/epoch{}_{}.jpg".format(epoch + 1, i)
+            img = batch_x.clone().detach()[i].view((channels, height, width))
+            pred = preds.clone().detach()[i].view((S, S, B * 5 + C))
+            target = batch_y.clone().detach()[i].view((S, S, B * 5 + C))
             visualize_boxes(img, pred, name, preprocess)
             # print("------------------------------------------")
             # print_cell_with_objects(target)
@@ -145,11 +151,12 @@ for epoch in range(cur_epoch, epochs):
             val_loss = loss_func(preds, batch_y)
             accumulated_val_loss.append(val_loss)
 
+    duration = time.time() - start_timestamp
     # Epoch losses
     train_loss = sum(accumulated_train_loss) / len(accumulated_train_loss)
     val_loss = sum(accumulated_val_loss) / len(accumulated_val_loss)
-    print("*** **** Epoch: {} --- Train loss: {} --- Val loss: {}".format(epoch +
-                                                                          1, train_loss, val_loss))
+    print("*** **** Epoch: {} --- Train loss: {} --- Val loss: {} - duration: {}".format(epoch +
+                                                                          1, train_loss, val_loss, duration))
 
     # Add to tensorboard
     tb.add_scalar("{}/Train loss".format(start_time), train_loss, epoch)

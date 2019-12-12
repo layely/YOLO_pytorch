@@ -41,49 +41,15 @@ class Dataset(data.Dataset):
         if self.random_transform:
             if random.random() > 0.5:
                 np_image, label = self.flip_horizontal(np_image, label)
-            if random.random() > 0.2
+            if random.random() > 0.2:
                 np_image = self.preprocessing.random_color_transform(np_image)
 
         torch_image = self.preprocessing.ToTensor(np_image)
         X = self.preprocessing.normalize(torch_image)
 
-        y = self.encode_labels(label)
+        y = self.preprocessing.encode_labels(label)
 
         return X.float(), torch.from_numpy(y).float()
-
-    def encode_labels(self, label):
-        S = self.S
-        B = self.B
-        C = self.C
-
-        ground_truth = np.zeros((S, S, B * 5 + C))
-        for xmin, ymin, xmax, ymax, cla in label:
-            x = (xmin + xmax) / 2
-            y = (ymin + ymax) / 2
-            w = xmax - xmin
-            h = ymax - ymin
-
-            # compute the grid row and column for this bbox
-            cell_size = 1. / S  # relative size
-            grid_x = math.floor(x / cell_size)
-            grid_y = math.floor(y / cell_size)
-
-            # x,y relative to the cell
-            x = x - (grid_x * cell_size)
-            y = y - (grid_y * cell_size)
-
-            # Normalize x and y with respect to cell_size
-            # so that they are in the range [0, 1]
-            x = x / cell_size
-            y = y / cell_size
-
-            confidence = 1.
-            encoded_class = self.encode_class(int(cla), C)
-
-            target = ([x, y, w, h, confidence] * B) + \
-                encoded_class  # length = B * xywhc + num_classes
-            ground_truth[grid_y, grid_x, :] = target
-        return ground_truth
 
     def flip_horizontal(self, img, label):
         """
@@ -97,12 +63,6 @@ class Dataset(data.Dataset):
             box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
             flipped_label.append(box)
         return flipped_img, flipped_label
-
-    def encode_class(self, a_class, num_class):
-        encoded_class = [0] * num_class
-        encoded_class[a_class] = 1
-        return encoded_class
-
 
 class DataGenerator():
     def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20, preprocessing=None):
@@ -125,7 +85,7 @@ class DataGenerator():
         self.labels = []
         with open(txt_file, "r") as f:
             lines = f.read().splitlines()
-            for i, line in enumerate(lines[:3]):
+            for i, line in enumerate(lines[:]):
                 row = line.split(' ')
                 self.images.append(images_path + "/" + row[0])
                 labels = [row[n:n+5] for n in range(1, len(row), 5)]
@@ -205,7 +165,7 @@ class DataGenerator():
 
     def resize_images(self, images, input_shape):
         resized_images = []
-        for img in images:
+        for img in tqdm(images):
             resized_img = cv2.resize(img, input_shape)
             resized_images.append(resized_img)
         return np.asarray(resized_images)

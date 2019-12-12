@@ -2,8 +2,6 @@ import torch
 import numpy as np
 import cv2
 
-TRESH_HOLD = 0.25
-
 VOC_CLASSES = (
     'aeroplane', 'bicycle', 'bird', 'boat',
     'bottle', 'bus', 'car', 'cat', 'chair',
@@ -11,27 +9,18 @@ VOC_CLASSES = (
     'motorbike', 'person', 'pottedplant',
     'sheep', 'sofa', 'train', 'tvmonitor')
 
-
-def draw_bbox(img, box, class_name, color=None, thickness=2):
+def draw_bbox(img, box, text, color=None, thickness=2):
     """
         image: (BGR) numpy array
-        box: xywh list
+        box: list of [xmin, ymin, xmax, ymax]
         class_name: string
         color = tupple of 3 values (B,G,R)
     """
 
-    img_h, img_w, channels = img.shape
-    x, y, w, h = box
-    x, w = x * img_w, w * img_w
-    y, h = y * img_h, h * img_h
-    xmin = x - w/2
-    xmax = x + w/2
-    ymin = y - h/2
-    ymax = y + h/2
-    xmin, xmax, ymin, ymax = [int(i) for i in [xmin, xmax, ymin, ymax]]
-    color = (36, 255, 12)
+    xmin, ymin, xmax, ymax = [int(i) for i in box]
+    color = (0, 255, 0)
     cv2.rectangle(img, (xmin, ymin), (xmax, ymax), color, thickness)
-    cv2.putText(img, class_name, (xmin, ymin-10),
+    cv2.putText(img, text, (xmin, max(ymin-10, 10)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, thickness=1)
 
 
@@ -40,40 +29,19 @@ def visualize_boxes(img, label, name=None, preprocess=None):
     img: torch tensor (BGR)
     label: torch tensor (S, S, B*5 + C)
     """
-    # Unormalize
-    img = preprocess.unnormalize(img)
-    img = preprocess.channel_first_to_channel_last(img)
 
-    # Convert to numpy
-    np_img = img.cpu().numpy().astype(np.uint8)
-    np_img = preprocess.RGB2BGR(np_img)
-    np_labels = label.cpu().numpy()
+    # Get numpy image in opencv format
+    np_img = preprocess.post_process_image(img)
+    # get bounding boxes + class + confidence
+    img_h, img_w, _ = np_img.shape
+    bboxes = preprocess.decode_label(label, img_h, img_w)
 
-    S = np_labels.shape[0]
-
-    for i in range(S):
-        for j in range(S):
-            bbox1, bbox2 = np_labels[i, j, :5], np_labels[i, j, 5:10]
-            if bbox1[4] > bbox2[4]:
-                box = bbox1
-            else:
-                box = bbox2
-            if box[4] > TRESH_HOLD:
-                # x and y relative to the image instead of grid_cell
-                cell_size = 1./S
-                x, y = box[:2]
-                x *= cell_size
-                y *= cell_size
-                cell_xmin = j * cell_size
-                cell_ymin = i * cell_size
-                x = x + cell_xmin
-                y = y + cell_ymin
-                box[:2] = [x, y]
-                class_number = np.argmax(np_labels[i, j, 10:])
-                confidence = round(box[4] * 100)
-                box_label = "{} {}%".format(
+    for bbox in bboxes:
+        class_number = int(bbox[4])
+        confidence = round(bbox[5] * 100)
+        box_label = "{} {}%".format(
                     VOC_CLASSES[class_number], confidence)
-                draw_bbox(np_img, box[:4], box_label, thickness=2)
+        draw_bbox(np_img, bbox[:4], box_label, thickness=2)
 
     if not name:
         cv2.imshow("image", np_img)
