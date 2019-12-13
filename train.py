@@ -6,7 +6,7 @@ from tqdm import tqdm
 import time
 
 from data import DataGenerator
-from visualize import visualize_boxes, print_cell_with_objects
+from visualize import draw_all_bboxes, print_cell_with_objects
 from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
@@ -65,7 +65,8 @@ val_generator = data.DataLoader(
 # This is just to check that labels are correctly encoded.
 pos = 0
 img1, target1 = train_dataset.__getitem__(pos)
-visualize_boxes(img1, target1, "gt.jpg", preprocess)
+gt_color = (0,0,255) #red
+draw_all_bboxes(img1, target1, preprocess, gt_color, "gt.jpg")
 
 # Enable anomaly detection for debugging purpose
 # torch.autograd.set_detect_anomaly(True)
@@ -130,7 +131,8 @@ for epoch in range(cur_epoch, epochs):
             img = batch_x.clone().detach()[i].view((channels, height, width))
             pred = preds.clone().detach()[i].view((S, S, B * 5 + C))
             target = batch_y.clone().detach()[i].view((S, S, B * 5 + C))
-            visualize_boxes(img, pred, name, preprocess)
+            pred_color = (0,255,0) # green
+            draw_all_bboxes(img, pred,preprocess, pred_color, name)
             # print("------------------------------------------")
             # print_cell_with_objects(target)
             # print("-- -- -- ")

@@ -5,11 +5,11 @@ from tqdm import tqdm
 import time
 
 from data import DataGenerator
-from visualize import visualize_boxes, print_cell_with_objects
+from visualize import draw_all_bboxes, print_cell_with_objects
 from models import YOLO
 from loss import YoloLoss
 from preprocessing import Preprocessing
-from utils import load_checkpoint
+from utils import load_checkpoint, write_result_to_disk
 
 device = torch.device(type='cuda')
 
@@ -75,11 +75,27 @@ with torch.no_grad():
         test_loss = loss_func(preds, batch_y)
         accumulated_test_loss.append(test_loss)
 
-        name = "test_results/test{}.jpg".format(it + 1)
+        name = "test_results/images/test{}.jpg".format(it + 1)
         img = batch_x.clone().view((channels, height, width))
         pred = preds.clone().view((S, S, B * 5 + C))
         target = batch_y.clone().view((S, S, B * 5 + C))
-        visualize_boxes(img, pred, name, preprocess)
+
+        # Get numpy image in opencv format
+        np_img = preprocess.post_process_image(img)
+        # get bounding boxes: xyxy + class + confidence
+        img_h, img_w, _ = np_img.shape
+        target_bboxes = preprocess.decode_label(target, img_h, img_w)
+        pred_bboxes = preprocess.decode_label(pred, img_h, img_w)
+
+        color = (0, 255, 0)
+        draw_all_bboxes(np_img, target_bboxes, preprocess, color, name)
+
+        # write results to disk
+        gt_file_name = "test_results/gt/test{}.txt".format(it + 1)
+        write_result_to_disk(gt_file_name, target_bboxes, type="gt")
+        pred_file_name = "test_results/pred/test{}.txt".format(it + 1)
+        write_result_to_disk(pred_file_name, pred_bboxes, type="pred")
+
         it += 1
 
 duration = time.time() - start_timestamp
