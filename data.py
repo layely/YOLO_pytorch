@@ -9,12 +9,41 @@ import random
 
 
 class Dataset(data.Dataset):
-    def __init__(self, images, labels, S, B, C, preprocessing=None, random_transform=False):
-        self.images = images
-        self.labels = labels
-        self.len = len(self.labels)
+    def __init__(self, images_paths, txt_files, input_shape,
+                 S=7, B=2, C=20, preprocessing=None, random_transform=False):
+        print("Preparing data...")
+
+        self.images_paths = images_paths
+        self.txt_files = txt_files
         self.S, self.B, self.C = S, B, C
+        self.preprocessing = preprocessing
         self.random_transform = random_transform
+
+        # Load images
+        self.images = []
+        # Each label is a list of (xmin, ymin, xmax, ymax, class)
+        self.labels = []
+        for txt_file, images_path in zip(txt_files, images_paths):
+            with open(txt_file, "r") as f:
+                lines = f.read().splitlines()
+                for i, line in enumerate(lines[:100]):
+                    row = line.split(' ')
+                    self.images.append(images_path + "/" + row[0])
+                    labels = [row[n:n+5] for n in range(1, len(row), 5)]
+                    self.labels.append(labels)
+
+        print("\tLoading images...")
+        self.image_paths = self.images
+        self.images = self.load_images(self.image_paths)
+
+        print("\tConvert labels to relative coordinates...")
+        self.original_labels = self.labels
+        self.labels = self.to_relative_coordinates(self.labels, self.images)
+
+        print("\tResizing images...")
+        self.images = self.resize_images(self.images, input_shape)
+
+        self.len = len(self.labels)
 
         # convert to numpy arrays
         self.images = np.asarray(self.images)
@@ -27,8 +56,6 @@ class Dataset(data.Dataset):
         # In pytorch, conv2D expect input shape to be in this
         # form: (batch_size, channels, height, weight).
         # self.images = self.images.permute(0, 3, 1, 2)
-
-        self.preprocessing = preprocessing
 
     def __len__(self):
         return self.len
@@ -50,50 +77,6 @@ class Dataset(data.Dataset):
         y = self.preprocessing.encode_labels(label)
 
         return X.float(), torch.from_numpy(y).float()
-
-    def flip_horizontal(self, img, label):
-        """
-            img: numpy array
-            label: bounding boxes with relative coordinates
-        """
-
-        flipped_img = np.fliplr(img).copy()
-        flipped_label = []
-        for xmin, ymin, xmax, ymax, cla in label:
-            box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
-            flipped_label.append(box)
-        return flipped_img, flipped_label
-
-class DataGenerator():
-    def __init__(self, images_paths, txt_files, input_shape, S=7, B=2, C=20, preprocessing=None):
-        print("Preparing data...")
-
-        self.images_paths = images_paths
-        self.txt_files = txt_files
-        self.S, self.B, self.C = S, B, C
-        self.preprocessing = preprocessing
-
-        # Load images
-        self.images = []
-        # Each label is a list of (xmin, ymin, xmax, ymax, class)
-        self.labels = []
-        for txt_file, images_path in zip(txt_files, images_paths):
-            with open(txt_file, "r") as f:
-                lines = f.read().splitlines()
-                for i, line in enumerate(lines[:100]):
-                    row = line.split(' ')
-                    self.images.append(images_path + "/" + row[0])
-                    labels = [row[n:n+5] for n in range(1, len(row), 5)]
-                    self.labels.append(labels)
-
-        print("\tLoading images...")
-        self.images = self.load_images(self.images)
-
-        print("\tConvert labels to relative coordinates...")
-        self.labels = self.to_relative_coordinates(self.labels, self.images)
-
-        print("\tResizing images...")
-        self.images = self.resize_images(self.images, input_shape)
 
     def get_datasets(self, random_transform=False):
         S = self.S
@@ -140,3 +123,17 @@ class DataGenerator():
             resized_img = cv2.resize(img, input_shape)
             resized_images.append(resized_img)
         return np.asarray(resized_images)
+
+    def flip_horizontal(self, img, label):
+        """
+            img: numpy array
+            label: bounding boxes with relative coordinates
+        """
+
+        flipped_img = np.fliplr(img).copy()
+        flipped_label = []
+        for xmin, ymin, xmax, ymax, cla in label:
+            box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
+            flipped_label.append(box)
+        return flipped_img, flipped_label
+

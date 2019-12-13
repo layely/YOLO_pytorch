@@ -5,7 +5,7 @@ from torch.autograd import Variable
 from tqdm import tqdm
 import time
 
-from data import DataGenerator
+from data import Dataset
 from visualize import draw_all_bboxes, print_cell_with_objects
 from models import YOLO
 from loss import YoloLoss
@@ -54,10 +54,10 @@ hue = 0.1
 preprocess = Preprocessing(S, B, C, mean, std, brightness, saturation, contrast, hue)
 
 # Load dataset
-train_dataset = DataGenerator(train_images_dir, train_files, (height, width),
-                              S, B, C, preprocess).get_datasets(random_transform=True)
-val_dataset = DataGenerator(test_images_dir, test_files, (height, width),
-                              S, B, C, preprocess).get_datasets(random_transform=False)
+train_dataset = Dataset(train_images_dir, train_files, (height, width),
+                              S, B, C, preprocess, random_transform=True)
+val_dataset = Dataset(test_images_dir, test_files, (height, width),
+                              S, B, C, preprocess, random_transform=False)
 train_generator = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True, num_workers=min(num_gpu*8, 16))
 val_generator = data.DataLoader(
