@@ -65,31 +65,26 @@ class Dataset(data.Dataset):
         return flipped_img, flipped_label
 
 class DataGenerator():
-    def __init__(self, images_path, txt_file, train, val, test, input_shape, S=7, B=2, C=20, preprocessing=None):
+    def __init__(self, images_paths, txt_files, input_shape, S=7, B=2, C=20, preprocessing=None):
         print("Preparing data...")
 
-        self.images_path = images_path
-        self.txt_file = txt_file
-        self.train = train
-        self.val = val
-        self.test = test
-        self.S = S
-        self.B = B
-        self.C = C
-
+        self.images_paths = images_paths
+        self.txt_files = txt_files
+        self.S, self.B, self.C = S, B, C
         self.preprocessing = preprocessing
 
         # Load images
         self.images = []
         # Each label is a list of (xmin, ymin, xmax, ymax, class)
         self.labels = []
-        with open(txt_file, "r") as f:
-            lines = f.read().splitlines()
-            for i, line in enumerate(lines[:]):
-                row = line.split(' ')
-                self.images.append(images_path + "/" + row[0])
-                labels = [row[n:n+5] for n in range(1, len(row), 5)]
-                self.labels.append(labels)
+        for txt_file, images_path in zip(txt_files, images_paths):
+            with open(txt_file, "r") as f:
+                lines = f.read().splitlines()
+                for i, line in enumerate(lines[:100]):
+                    row = line.split(' ')
+                    self.images.append(images_path + "/" + row[0])
+                    labels = [row[n:n+5] for n in range(1, len(row), 5)]
+                    self.labels.append(labels)
 
         print("\tLoading images...")
         self.images = self.load_images(self.images)
@@ -100,37 +95,13 @@ class DataGenerator():
         print("\tResizing images...")
         self.images = self.resize_images(self.images, input_shape)
 
-        # Compute train, val and test portions
-        total = train + val + test
-        train = train/total
-        val = val/total
-        test = test/total
-
-        # # compute number of images in train and val
-        train_size = round(train * len(self.images))
-        val_size = round(val * len(self.images))
-
-        # # Split into train, val and test
-        print("\tSpliting dataset...")
-        self.trainX = self.images[:train_size]
-        self.trainY = self.labels[:train_size]
-        self.valX = self.images[train_size:train_size + val_size]
-        self.valY = self.labels[train_size:train_size + val_size]
-        self.testX = self.images[train_size + val_size:]
-        self.testY = self.labels[train_size + val_size:]
-
-    def get_datasets(self):
+    def get_datasets(self, random_transform=False):
         S = self.S
         B = self.B
         C = self.C
-
-        train_dataset = Dataset(self.trainX, self.trainY,
-                                S, B, C, self.preprocessing, random_transform=True)
-        val_dataset = Dataset(self.valX, self.valY, S,
-                              B, C, self.preprocessing)
-        test_dataset = Dataset(self.testX, self.testY,
-                               S, B, C, self.preprocessing)
-        return train_dataset, val_dataset, test_dataset
+        train_dataset = Dataset(self.images, self.labels,
+                                S, B, C, self.preprocessing, random_transform)
+        return train_dataset
 
     def to_relative_coordinates(self, labels, images):
         labels_with_rel_coord = []

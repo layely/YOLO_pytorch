@@ -14,23 +14,24 @@ from tb import Tensorboard
 from utils import save_checkpoint
 
 device = torch.device(type='cuda')
-num_gpu = torch.cuda.device_count()
+num_gpu = 1 #torch.cuda.device_count()
 
-images_path = "/home/layely/Myprojects/datasets/VOCtrainval_11-May-2012/VOCdevkit/VOC2012/JPEGImages"
-txt_file = "voc_2012.txt"
+# Train and test files
+voc_2007 = "/home/layely/Myprojects/datasets/VOCtrainval_06-Nov-2007/VOCdevkit/VOC2007/JPEGImages"
+voc_2012 = "/home/layely/Myprojects/datasets/VOCtrainval_11-May-2012/VOCdevkit/VOC2012/JPEGImages"
+train_images_dir = [voc_2007, voc_2012]
+train_files = ["voc_2007.txt", "voc_2012.txt"]
+voc_2007_test = "/home/layely/Myprojects/datasets/VOCtest_06-Nov-2007/VOCdevkit/VOC2007/JPEGImages"
+test_images_dir = [voc_2007_test]
+test_files = ["voc_2007_test.txt"]
 
 channels, height, width = (3, 448, 448)
 S = 7  # SxS grid cells
 B = 2  # Number of bounding boxes per cell
 C = 20  # Number of classes
 
-# Data split proportions
-train = .6
-val = .2
-test = .2
-
 # Training hyperparameters
-epochs = 200
+epochs = 3
 lr = 0.0005
 momentum = 0.9
 weight_decay = 5e-4
@@ -50,13 +51,13 @@ saturation = 0.4
 contrast = 0.4
 hue = 0.1
 
-preprocess = Preprocessing(mean, std, brightness, saturation, contrast, hue)
+preprocess = Preprocessing(S, B, C, mean, std, brightness, saturation, contrast, hue)
 
 # Load dataset
-dataloader = DataGenerator(images_path, txt_file, train,
-                           val, test, (height, width),
-                           S, B, C, preprocess)
-train_dataset, val_dataset, test_dataset = dataloader.get_datasets()
+train_dataset = DataGenerator(train_images_dir, train_files, (height, width),
+                              S, B, C, preprocess).get_datasets(random_transform=True)
+val_dataset = DataGenerator(test_images_dir, test_files, (height, width),
+                              S, B, C, preprocess).get_datasets(random_transform=False)
 train_generator = data.DataLoader(
     train_dataset, batch_size=batch_size, shuffle=True, num_workers=min(num_gpu*8, 16))
 val_generator = data.DataLoader(
@@ -66,10 +67,17 @@ val_generator = data.DataLoader(
 pos = 0
 img1, target1 = train_dataset.__getitem__(pos)
 gt_color = (0,0,255) #red
-draw_all_bboxes(img1, target1, preprocess, gt_color, "gt.jpg")
+
+# Get numpy image in opencv format
+np_img = preprocess.post_process_image(img1)
+# get bounding boxes: xyxy + class + confidence
+img_h, img_w, _ = np_img.shape
+target_bboxes = preprocess.decode_label(target1, img_h, img_w)
+
+draw_all_bboxes(np_img, target_bboxes, preprocess, gt_color, "gt.jpg")
 
 # Enable anomaly detection for debugging purpose
-# torch.autograd.set_detect_anomaly(True)
+torch.autograd.set_detect_anomaly(True)
 
 model = YOLO((channels, height, width), S, B, C)
 if num_gpu > 1:
@@ -86,7 +94,7 @@ optimizer = opt(model.parameters(), momentum=momentum, lr=lr,
                 weight_decay=weight_decay)  # momentum=momentum
 
 # Keep the loss of the best model
-best_model_loss = None
+best_model_loss = test = float("inf")
 
 start_time = time.ctime()
 
@@ -125,18 +133,18 @@ for epoch in range(cur_epoch, epochs):
         # print("gradients")
         # print([p.grad for p in model.parameters()])
 
-    if (epoch + 1) % 10 == 0:
-        for i in range(min(batch_size, 4)):
-            name = "predictions/epoch{}_{}.jpg".format(epoch + 1, i)
-            img = batch_x.clone().detach()[i].view((channels, height, width))
-            pred = preds.clone().detach()[i].view((S, S, B * 5 + C))
-            target = batch_y.clone().detach()[i].view((S, S, B * 5 + C))
-            pred_color = (0,255,0) # green
-            draw_all_bboxes(img, pred,preprocess, pred_color, name)
-            # print("------------------------------------------")
-            # print_cell_with_objects(target)
-            # print("-- -- -- ")
-            # print_cell_with_objects(pred)
+    # if (epoch + 1) % 10 == 0:
+    #     for i in range(min(batch_size, 4)):
+    #         name = "predictions/epoch{}_{}.jpg".format(epoch + 1, i)
+    #         img = batch_x.clone().detach()[i].view((channels, height, width))
+    #         pred = preds.clone().detach()[i].view((S, S, B * 5 + C))
+    #         target = batch_y.clone().detach()[i].view((S, S, B * 5 + C))
+    #         pred_color = (0,255,0) # green
+    #         draw_all_bboxes(img, pred,preprocess, pred_color, name)
+    #         # print("------------------------------------------")
+    #         # print_cell_with_objects(target)
+    #         # print("-- -- -- ")
+    #         # print_cell_with_objects(pred)
 
     # Validation
     model.eval()
@@ -164,8 +172,13 @@ for epoch in range(cur_epoch, epochs):
     tb.add_scalar("{}/Train loss".format(start_time), train_loss, epoch)
     tb.add_scalar("{}/Val loss".format(start_time), val_loss, epoch)
 
-    if not best_model_loss or val_loss > best_model_loss:
-        save_checkpoint(model, optimizer, epoch, loss)
+    if val_loss < best_model_loss:
+        print("saving model...")
+        best_model_loss = val_loss
+        if isinstance(model, torch.nn.DataParallel):
+            save_checkpoint(model.module, optimizer, epoch, loss)
+        else:
+            save_checkpoint(model, optimizer, epoch, loss)
 
 # End of train
 tb.close()
