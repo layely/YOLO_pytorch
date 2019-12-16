@@ -26,7 +26,7 @@ class Dataset(data.Dataset):
         for txt_file, images_path in zip(txt_files, images_paths):
             with open(txt_file, "r") as f:
                 lines = f.read().splitlines()
-                for i, line in enumerate(lines[:100]):
+                for i, line in enumerate(lines[:]):
                     row = line.split(' ')
                     self.images.append(images_path + "/" + row[0])
                     labels = [row[n:n+5] for n in range(1, len(row), 5)]
