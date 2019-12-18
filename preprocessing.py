@@ -4,8 +4,6 @@ import torch
 import numpy as np
 import math
 
-TRESH_HOLD = 0.25
-
 class Preprocessing():
     def __init__(self, S, B, C, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
                  brightness=0, saturation=0, contrast=0, hue=0):
@@ -64,7 +62,7 @@ class Preprocessing():
             ground_truth[grid_y, grid_x, :] = target
         return ground_truth
 
-    def decode_label(self, label, img_h, img_w):
+    def decode_label(self, label, img_h, img_w, obj_thresh=0.25):
         """
             label: torch tensor (S, S, B*5 + C)
             Return:
@@ -83,7 +81,7 @@ class Preprocessing():
                     box = bbox1
                 else:
                     box = bbox2
-                if box[4] > TRESH_HOLD:
+                if box[4] > obj_thresh:
                     # x and y relative to the image instead of grid_cell
                     cell_size = 1./self.S
                     x, y = box[:2]
