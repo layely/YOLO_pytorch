@@ -4,6 +4,18 @@ import torch
 import numpy as np
 import math
 
+from albumentations import (
+    BboxParams,
+    HorizontalFlip,
+    VerticalFlip,
+    Resize,
+    CenterCrop,
+    RandomCrop,
+    Crop,
+    Compose
+)
+
+
 class Preprocessing():
     def __init__(self, S, B, C, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225],
                  brightness=0, saturation=0, contrast=0, hue=0):
@@ -23,7 +35,8 @@ class Preprocessing():
         self.saturation = saturation
         self.contrast = contrast
         self.hue = hue
-        self.color_transform = transforms.ColorJitter(brightness, saturation, contrast, hue)
+        self.color_transform = transforms.ColorJitter(
+            brightness, saturation, contrast, hue)
 
         self.ToPILImage = transforms.ToPILImage(mode='RGB')
         self.ToTensor = transforms.ToTensor()
@@ -73,7 +86,7 @@ class Preprocessing():
         # Convert to numpy
         np_labels = label.cpu().numpy()
 
-        boxes = [] # x1, y1, x2, y2, class_num, confidence
+        boxes = []  # x1, y1, x2, y2, class_num, confidence
         for i in range(self.S):
             for j in range(self.S):
                 bbox1, bbox2 = np_labels[i, j, :5], np_labels[i, j, 5:10]
@@ -103,12 +116,14 @@ class Preprocessing():
                     xmax = x + w/2
                     ymin = y - h/2
                     ymax = y + h/2
-                    xmin, xmax, ymin, ymax = [int(i) for i in [xmin, xmax, ymin, ymax]]
+                    xmin, xmax, ymin, ymax = [
+                        int(i) for i in [xmin, xmax, ymin, ymax]]
 
                     class_number = np.argmax(np_labels[i, j, 10:])
                     confidence = box[4]
 
-                    boxes.append([xmin, ymin, xmax, ymax, class_number, confidence])
+                    boxes.append(
+                        [xmin, ymin, xmax, ymax, class_number, confidence])
         return boxes
 
     def post_process_image(self, torch_img):
@@ -179,3 +194,37 @@ class Preprocessing():
         pil_img = self.color_transform(pil_img)
         return np.array(pil_img)
 
+    def vertical_flip(self, img, labels):
+        aug = self._get_aug([VerticalFlip(p=1)])
+        annotations = self._format_annotation(img, labels)
+        augmented_ann = aug(**annotations)
+        return self._unformat_annotation(augmented_ann)
+
+    def _format_annotation(self, image, label):
+        """
+        image: Numpy image in format RGB
+        labels: List of bounding boxes with format
+                xmin, ymin, xmax, ymax, classe number.
+        """
+        bboxes = []
+        classe_ids = []
+        for xyxyc in label:
+            bboxes.append(xyxyc[:4])
+            classe_ids.append(xyxyc[4])
+        return {'image': image, 'bboxes': bboxes, 'class_ids': classe_ids}
+
+    def _unformat_annotation(self, annotations):
+        image = annotations['image']
+        label = []
+        bboxes = annotations['bboxes']
+        class_ids = annotations['class_ids']
+        for bbox, class_id in zip(bboxes, class_ids):
+            label.append(list(bbox) + [class_id])
+        return image, label
+
+    def _get_aug(self, aug, min_area=0., min_visibility=0.):
+        bbox_params = BboxParams(format='albumentations', # xmin,xmax,ymin,ymax relatives
+                                 min_area=min_area,
+                                 min_visibility=min_visibility,
+                                 label_fields=['class_ids'])
+        return Compose(aug, bbox_params=bbox_params)
