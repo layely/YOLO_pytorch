@@ -3,16 +3,21 @@ from torchvision import transforms
 import torch
 import numpy as np
 import math
+import random
 
 from albumentations import (
     BboxParams,
-    HorizontalFlip,
-    VerticalFlip,
-    Resize,
     CenterCrop,
-    RandomCrop,
+    Compose,
     Crop,
-    Compose
+    HorizontalFlip,
+    PadIfNeeded,
+    RandomCrop,
+    RandomSizedBBoxSafeCrop,
+    RandomSizedCrop,
+    Resize,
+    Rotate,
+    VerticalFlip,
 )
 
 
@@ -184,6 +189,9 @@ class Preprocessing():
         ret *= 255.
         return ret
 
+    def apply_random_transforms(self, images, labels):
+        return self.random_shrink(images, labels)
+
     def random_color_transform(self, img):
         """
             Numpy image (RGB)
@@ -194,11 +202,47 @@ class Preprocessing():
         pil_img = self.color_transform(pil_img)
         return np.array(pil_img)
 
+    def random_shrink(self, img, labels):
+        height = img.shape[0]
+        width = img.shape[1]
+        stripped_size = round(random.random() * 100)
+        resize = Resize(height - stripped_size, width - stripped_size,
+                        always_apply=False, p=1)
+        img, labels = self._transform(img, labels, [resize])
+        pad = PadIfNeeded(min_height=height, min_width=width,
+                          border_mode=4, value=None,
+                          mask_value=None, always_apply=False, p=1.0)
+        return self._transform(img, labels, [pad])
+
+
     def vertical_flip(self, img, labels):
-        aug = self._get_aug([VerticalFlip(p=1)])
+        return self._transform(img, labels, [VerticalFlip(p=1)])
+
+    def horizontal_flip(self, img, labels):
+        return self._transform(img, labels, [HorizontalFlip(p=1)])
+
+    def random_crop(self, img, labels):
+        height = img.shape[0]
+        width = img.shape[1]
+        crop = RandomSizedCrop(300, height, width, always_apply=False, p=1.0)
+        # crop = RandomSizedBBoxSafeCrop(height=height, width=height, p=1)
+        return self._transform(img, labels, [crop])
+
+    def random_rotate(self, img, labels):
+        angle = 20 # random rotate [-angle, angle]
+        border_mode = cv2.BORDER_CONSTANT # default 4
+        rotation = Rotate(limit=angle, border_mode=4,
+                          value=None, mask_value=None,
+                          always_apply=False, p=1)
+        return self._transform(img, labels, [rotation])
+
+    def _transform(self, img, labels, transformations):
+        aug = self._compose(transformations)
         annotations = self._format_annotation(img, labels)
         augmented_ann = aug(**annotations)
         return self._unformat_annotation(augmented_ann)
+
+
 
     def _format_annotation(self, image, label):
         """
@@ -222,7 +266,7 @@ class Preprocessing():
             label.append(list(bbox) + [class_id])
         return image, label
 
-    def _get_aug(self, aug, min_area=0., min_visibility=0.):
+    def _compose(self, aug, min_area=0., min_visibility=0.):
         bbox_params = BboxParams(format='albumentations', # xmin,xmax,ymin,ymax relatives
                                  min_area=min_area,
                                  min_visibility=min_visibility,

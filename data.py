@@ -26,7 +26,7 @@ class Dataset(data.Dataset):
         for txt_file, images_path in zip(txt_files, images_paths):
             with open(txt_file, "r") as f:
                 lines = f.read().splitlines()
-                for i, line in enumerate(lines[:]):
+                for i, line in enumerate(lines[:50]):
                     row = line.split(' ')
                     self.images.append(images_path + "/" + row[0])
                     labels = [row[n:n+5] for n in range(1, len(row), 5)]
@@ -66,10 +66,9 @@ class Dataset(data.Dataset):
 
         # Augmentation
         if self.random_transform:
-            if random.random() > 0.5:
-                np_image, label = self.flip_horizontal(np_image, label)
-            if random.random() > 0.2:
-                np_image = self.preprocessing.random_color_transform(np_image)
+            if random.random() > 0.:
+                np_image, label = self.preprocessing.apply_random_transforms(np_image, label)
+                # np_image = self.preprocessing.random_color_transform(np_image)
 
         torch_image = self.preprocessing.ToTensor(np_image)
         X = self.preprocessing.normalize(torch_image)
@@ -124,16 +123,16 @@ class Dataset(data.Dataset):
             resized_images.append(resized_img)
         return np.asarray(resized_images)
 
-    def flip_horizontal(self, img, label):
-        """
-            img: numpy array
-            label: bounding boxes with relative coordinates
-        """
+    # def flip_horizontal(self, img, label):
+    #     """
+    #         img: numpy array
+    #         label: bounding boxes with relative coordinates
+    #     """
 
-        flipped_img = np.fliplr(img).copy()
-        flipped_label = []
-        for xmin, ymin, xmax, ymax, cla in label:
-            box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
-            flipped_label.append(box)
-        return flipped_img, flipped_label
+    #     flipped_img = np.fliplr(img).copy()
+    #     flipped_label = []
+    #     for xmin, ymin, xmax, ymax, cla in label:
+    #         box = [1 - xmax, ymin, 1 - xmin, ymax, cla]
+    #         flipped_label.append(box)
+    #     return flipped_img, flipped_label
 

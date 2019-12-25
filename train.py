@@ -69,17 +69,20 @@ if __name__ == "__main__":
         val_dataset, batch_size=batch_size, shuffle=False, num_workers=min(num_gpu*8, 16))
 
     # This is just to check that labels are correctly encoded.
-    pos = 0
-    img1, target1 = train_dataset.__getitem__(pos)
-    gt_color = (0,0,255) #red
+    for pos in range(20):
+        img1, target1 = train_dataset.__getitem__(pos)
+        gt_color = (0, 0, 255) #red
 
-    # Get numpy image in opencv format
-    np_img = preprocess.post_process_image(img1)
-    # get bounding boxes: xyxy + class + confidence
-    img_h, img_w, _ = np_img.shape
-    target_bboxes = preprocess.decode_label(target1, img_h, img_w)
+        # Get numpy image in opencv format
+        np_img = preprocess.post_process_image(img1)
+        # get bounding boxes: xyxy + class + confidence
+        img_h, img_w, _ = np_img.shape
+        target_bboxes = preprocess.decode_label(target1, img_h, img_w)
 
-    draw_all_bboxes(np_img, target_bboxes, preprocess, gt_color, "gt.jpg")
+        draw_all_bboxes(np_img, target_bboxes, preprocess, gt_color, "images_transformed/gt_{}.jpg".format(pos))
+
+    import os
+    os._exit(1)
 
     # Enable anomaly detection for debugging purpose
     torch.autograd.set_detect_anomaly(True)
